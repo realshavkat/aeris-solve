@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { connectToDatabase } from "@/lib/mongodb";
@@ -8,7 +8,7 @@ type Member = { id: string; name?: string };
 type FolderDoc = { _id: ObjectId; ownerId: string; members: Member[] };
 
 export async function DELETE(
-  _request: NextRequest,
+  request: Request,
   { params }: { params: { folderId: string; memberId: string } }
 ) {
   try {
