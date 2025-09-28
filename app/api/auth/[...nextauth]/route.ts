@@ -4,7 +4,7 @@ import DiscordProvider from "next-auth/providers/discord";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export const authOptions: AuthOptions = {
+const authOptions: AuthOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
