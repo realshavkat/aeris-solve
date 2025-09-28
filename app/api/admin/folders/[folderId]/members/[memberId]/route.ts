@@ -9,7 +9,8 @@ type FolderDoc = { _id: ObjectId; ownerId: string; members: Member[] };
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { folderId: string; memberId: string } }
+  // 👇 LA CORRECTION EST ICI
+  context: { params: { folderId: string; memberId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,7 +19,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const { folderId, memberId } = params;
+    // 👇 ET ICI
+    const { folderId, memberId } = context.params;
     const { db } = await connectToDatabase();
 
     // Vérifier que le dossier existe
