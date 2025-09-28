@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { connectToDatabase } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId, UpdateFilter } from "mongodb";
 
 export async function DELETE(
   request: NextRequest,
