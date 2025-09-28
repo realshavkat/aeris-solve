@@ -9,7 +9,6 @@ type FolderDoc = { _id: ObjectId; ownerId: string; members: Member[] };
 
 export async function DELETE(
   request: Request,
-  // 👇 LA CORRECTION EST ICI
   context: { params: { folderId: string; memberId: string } }
 ) {
   try {
@@ -19,7 +18,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    // 👇 ET ICI
     const { folderId, memberId } = context.params;
     const { db } = await connectToDatabase();
 
