@@ -1,19 +1,14 @@
 // kuragiri/app/api/admin/folders/[folderId]/members/[memberId]/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// Contexte pour les paramètres de la route
-interface RouteContext {
-  params: {
-    folderId: string;
-    memberId: string;
-  };
-}
-
-export async function DELETE(request: Request, { params }: RouteContext) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: { folderId: string; memberId: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -21,7 +16,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const { folderId, memberId } = params; // Correction: 'params' n'est pas une promesse
+    const { folderId, memberId } = params;
 
     const { db } = await connectToDatabase();
 
