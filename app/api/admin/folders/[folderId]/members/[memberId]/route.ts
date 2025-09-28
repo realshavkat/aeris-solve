@@ -10,7 +10,7 @@ type FolderDoc = { _id: ObjectId; ownerId: string; members: Member[] };
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { folderId: string } }
+  { params }: { params: Promise<{ folderId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,7 +18,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const { folderId } = params;
+    const { folderId } = await params;
 
     // 1) Récupère memberId : priorité à l'URL, sinon dans le body
     let memberId = new URL(request.url).searchParams.get("memberId") ?? undefined;
