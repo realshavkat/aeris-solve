@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, UpdateFilter } from "mongodb";
 
 export async function DELETE(
   request: Request, // ou NextRequest si vous l'utilisez
-  { params }: { params: Promise<{ folderId: string; memberId: string }> }
+  { params }: { params: Record<string, string> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,7 +16,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const { folderId, memberId } = await params;
+    const { folderId, memberId } = params;
 
     const { db } = await connectToDatabase();
 
@@ -34,10 +34,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Impossible de retirer le propriétaire du dossier" }, { status: 400 });
     }
 
+    type FolderDoc = { _id: ObjectId; members: { id: string }[] };
+
     // Supprimer le membre de la liste
-    const result = await db.collection("folders").updateOne(
+    const result = await db.collection<FolderDoc>("folders").updateOne(
       { _id: new ObjectId(folderId) },
-      { $pull: { members: { id: memberId } } }
+      { $pull: { members: { id: memberId } } } as UpdateFilter<FolderDoc>
     );
 
     if (result.modifiedCount === 0) {
