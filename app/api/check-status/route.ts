@@ -13,7 +13,7 @@ export async function GET() {
     }
 
     await connectToDatabase();
-    const user = await User.findOne({ discordId: session.user.discordId });
+    const user = await User.findById(session.user.id);
     
     if (!user) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });

@@ -45,9 +45,9 @@ export async function PATCH(
     }
     if (body.accessKey !== undefined) {
       if (body.accessKey === null || body.accessKey === '') {
-        updateData.$unset = { ...updateData.$unset, accessKey: "" };
+        updateData.$unset = { ...(updateData.$unset ?? {}), accessKey: "" };
       } else {
-        updateData.accessKey = body.accessKey;
+        updateData.$set = { ...(updateData.$set ?? {}), accessKey: body.accessKey };
       }
     }
     if (body.ownerId !== undefined) {

@@ -92,27 +92,29 @@ export async function POST(request: NextRequest) {
       throw new Error("Erreur lors de la création du dossier");
     }
 
-    const createdFolder = await db.collection("folders").findOne({ 
-      _id: result.insertedId 
-    });
+    const createdFolder = await db.collection("folders").findOne({ _id: result.insertedId });
+    if (!createdFolder) {
+      return NextResponse.json({ error: "Dossier créé introuvable" }, { status: 500 });
+    }
 
     // AJOUT: Log Discord
     try {
       await discordLogger.logFolderCreated(
         {
-          name: user.anonymousNickname || user.discordUsername || "Utilisateur",
-          discordId: user.discordId
+          name: user.anonymousNickname ?? user.discordUsername ?? "Utilisateur",
+          discordId: user.discordId,
         },
         {
-          title: createdFolder.title,
-          description: createdFolder.description,
-          _id: createdFolder._id.toString()
+          title: createdFolder.title ?? "Sans titre",
+          description: createdFolder.description ?? null,
+          _id: createdFolder._id.toString(),
         }
       );
     } catch (logError) {
       console.error("Erreur log Discord:", logError);
       // Ne pas faire échouer la création du dossier si le log échoue
     }
+
 
     return NextResponse.json(createdFolder);
   } catch (error) {

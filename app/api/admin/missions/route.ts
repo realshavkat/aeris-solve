@@ -188,23 +188,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const createdMission = await db.collection("missions").findOne({ 
-      _id: result.insertedId 
-    });
+    const createdMission = await db.collection("missions").findOne({ _id: result.insertedId });
+    if (!createdMission) {
+      return NextResponse.json({ error: "Mission créée introuvable" }, { status: 500 });
+    }
 
     // Log Discord
     try {
       await discordLogger.logMissionCreatedByAdmin(
         {
           name: adminUser.anonymousNickname || adminUser.discordUsername || "Administrateur",
-          discordId: adminUser.discordId
+          discordId: adminUser.discordId,
         },
         {
           title: createdMission.title,
           description: createdMission.description,
           _id: createdMission._id.toString(),
           priority: createdMission.priority,
-          assignedUsers: createdMission.assignedUsers
+          assignedUsers: createdMission.assignedUsers,
         }
       );
     } catch (logError) {
@@ -215,8 +216,9 @@ export async function POST(request: NextRequest) {
       message: "Mission créée avec succès",
       mission: createdMission,
       notificationsSent: sendNotification ? assignedUsers.length : 0,
-      discordMessagesSent: discordMessagesSent // Maintenant définie correctement
+      discordMessagesSent,
     });
+
 
   } catch (error) {
     console.error("Erreur création mission:", error);

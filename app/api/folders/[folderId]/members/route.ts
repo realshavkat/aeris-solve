@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { ObjectId } from "mongodb";
+import { ObjectId, UpdateFilter } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -81,14 +81,17 @@ export async function DELETE(
       return NextResponse.json({ error: "Impossible de retirer le propriétaire" }, { status: 400 });
     }
 
-    // Retirer le membre
-    const result = await db.collection("folders").updateOne(
+
+    type FolderDoc = { _id: ObjectId; members: { id: string }[]; lastModified?: Date };
+
+    const result = await db.collection<FolderDoc>("folders").updateOne(
       { _id: new ObjectId(folderId) },
-      { 
-        $pull: { members: { id: memberId } },
-        $set: { lastModified: new Date() }
-      }
+      {
+        $pull: { members: { id: String(memberId) } },
+        $set:  { lastModified: new Date() }
+      } as UpdateFilter<FolderDoc>
     );
+
 
     if (!result.matchedCount) {
       return NextResponse.json({ error: "Dossier non trouvé" }, { status: 404 });

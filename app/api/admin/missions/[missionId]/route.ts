@@ -172,26 +172,31 @@ export async function PATCH(
     }
 
     const updatedMission = await db.collection("missions").findOne({
-      _id: new ObjectId(missionId)
+      _id: new ObjectId(missionId),
     });
+    if (!updatedMission) {
+      return NextResponse.json({ error: "Mission introuvable" }, { status: 404 });
+    }
 
     // Log Discord pour les changements de statut
     if (status !== undefined) {
       try {
         const adminUser = await db.collection("users").findOne({
-          _id: new ObjectId(session.user.id)
+          _id: new ObjectId(session.user.id),
         });
 
+        const admin = {
+          name: adminUser?.anonymousNickname ?? adminUser?.discordUsername ?? "Administrateur",
+          discordId: adminUser?.discordId ?? "unknown",
+        };
+
         await discordLogger.logMissionStatusChangedByAdmin(
-          {
-            name: adminUser?.anonymousNickname || adminUser?.discordUsername || "Administrateur",
-            discordId: adminUser?.discordId || "unknown"
-          },
+          admin,
           {
             title: updatedMission.title,
             _id: updatedMission._id.toString(),
-            oldStatus: "previous", // Vous pouvez récupérer l'ancien statut si nécessaire
-            newStatus: status
+            oldStatus: "previous", // à remplacer si tu stockes l'ancien statut
+            newStatus: status,
           }
         );
       } catch (logError) {
