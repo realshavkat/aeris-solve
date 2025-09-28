@@ -9,7 +9,7 @@ type FolderDoc = { _id: ObjectId; members?: Member[]; lastModified?: Date };
 
 export async function POST(
   request: NextRequest,
-  context: { params: { folderId: string } }
+  context: { params: Promise<{ folderId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,7 +17,7 @@ export async function POST(
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const { folderId } = context.params;
+    const { folderId } = await context.params;
     const { userId } = await request.json();
     if (!userId) {
       return NextResponse.json({ error: "ID utilisateur requis" }, { status: 400 });
