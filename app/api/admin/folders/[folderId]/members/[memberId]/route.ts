@@ -31,10 +31,12 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    // Supprimer le membre de la liste
-    const result = await db.collection("folders").updateOne(
+    type Folder = { _id: ObjectId; members: { id: string; name?: string }[] };
+
+    // Supprimer le membre de la liste (typé pour Mongo)
+    const result = await db.collection<Folder>("folders").updateOne(
       { _id: new ObjectId(folderId) },
-      { $pull: { members: { id: memberId } } }
+      { $pull: { members: { id: memberId } } } satisfies UpdateFilter<Folder>
     );
 
     if (result.modifiedCount === 0) {
