@@ -93,25 +93,26 @@ export async function POST(request: NextRequest) {
       throw new Error("Erreur lors de la création du rapport");
     }
 
-    const savedReport = await db.collection("reports").findOne({
-      _id: result.insertedId
-    });
+    const savedReport = await db.collection("reports").findOne({ _id: result.insertedId });
+    if (!savedReport) {
+      return NextResponse.json({ error: "Rapport créé introuvable" }, { status: 500 });
+    }
 
     // AJOUT: Log Discord
     try {
       await discordLogger.logReportCreated(
         {
           name: user.anonymousNickname || user.discordUsername || "Utilisateur",
-          discordId: user.discordId
+          discordId: user.discordId,
         },
         {
           title: savedReport.title,
           _id: savedReport._id.toString(),
-          importance: savedReport.importance
+          importance: savedReport.importance,
         },
         {
           title: folder.title,
-          _id: folder._id.toString()
+          _id: folder._id.toString(),
         }
       );
     } catch (logError) {
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(savedReport, { status: 201 });
+
   } catch (error) {
     console.error("Erreur création rapport:", error);
     return NextResponse.json(

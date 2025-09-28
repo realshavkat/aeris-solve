@@ -83,21 +83,22 @@ export async function POST(request: NextRequest) {
       throw new Error("Erreur lors de la création de la mission");
     }
 
-    const createdMission = await db.collection("missions").findOne({ 
-      _id: result.insertedId 
-    });
+    const createdMission = await db.collection("missions").findOne({ _id: result.insertedId });
+    if (!createdMission) {
+      return NextResponse.json({ error: "Mission créée introuvable" }, { status: 500 });
+    }
 
     // Log Discord
     try {
       await discordLogger.logMissionCreated(
         {
           name: user.anonymousNickname || user.discordUsername || "Utilisateur",
-          discordId: user.discordId
+          discordId: user.discordId,
         },
         {
           title: createdMission.title,
           description: createdMission.description,
-          _id: createdMission._id.toString()
+          _id: createdMission._id.toString(),
         }
       );
     } catch (logError) {
