@@ -188,7 +188,7 @@ export function NotificationsPopover() {
         
         console.log('✅ Notifications mises à jour:', data.length, 'non lues:', data.filter((n: Notification) => !n.read).length);
       }
-    } catch (error: any) {
+    } catch (error: Record<string, unknown>) {
       if (error.name !== 'AbortError') {
         console.error("❌ Erreur chargement notifications:", error);
       }
@@ -243,7 +243,7 @@ export function NotificationsPopover() {
         fetchAbortControllerRef.current.abort();
       }
     };
-  }, []); // AUCUNE DÉPENDANCE
+  }, [fetchNotifications, syncFromCache]); // AUCUNE DÉPENDANCE
 
   // Cleanup global à la destruction du composant
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,15 +15,11 @@ import {
   Plus,
   Calendar,
   MoreHorizontal,
-  Eye,
   Trash2,
   Edit,
   Save,
-  X,
   Crown,
-  UserCheck,
   Settings,
-  Palette
 } from "lucide-react";
 import {
   Select,
@@ -658,7 +654,7 @@ export default function AdminRolesPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5 text-purple-600" />
-              Modifier le rôle "{selectedRole?.name}"
+              Modifier le rôle &quot;{selectedRole?.name}&quot;
             </DialogTitle>
           </DialogHeader>
 
@@ -815,7 +811,7 @@ export default function AdminRolesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer le rôle ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le rôle "{selectedRole?.name}" ?
+              Êtes-vous sûr de vouloir supprimer le rôle &quot;{selectedRole?.name}&quot; ?
               Cette action est irréversible.
               {selectedRole?.userCount > 0 && (
                 <span className="block mt-2 text-destructive font-medium">

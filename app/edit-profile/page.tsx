@@ -1,6 +1,5 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/card";
 
 export default function EditProfilePage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [rpName, setRpName] = useState("");
   const [anonymousNickname, setAnonymousNickname] = useState("");
@@ -53,7 +51,7 @@ export default function EditProfilePage() {
         setError(data.message);
       }
     } catch (err) {
-      setError("Une erreur est survenue");
+      setError("Une erreur est survenue", err);
     } finally {
       setIsSubmitting(false);
     }

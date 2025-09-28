@@ -65,7 +65,7 @@ export function ChangeImageDialog({ folderId, open, onClose, onImageChanged }: C
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Changer l'image de couverture</DialogTitle>
+          <DialogTitle>Changer l&apos;image de couverture</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">

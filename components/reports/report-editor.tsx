@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from "next-auth/react"; // AJOUT DE L'IMPORT MANQUANT
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { 
   Select, 
   SelectContent, 
@@ -15,17 +14,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { 
-  Bold, 
-  Italic, 
-  Strikethrough,
-  List, // Ajout de l'import manquant
-  ListOrdered,
-  Quote,
-  Code,
-  Link,
-  Image,
   Palette,
-  Tag as TagIcon,
   Save,
   Eye,
   ArrowLeft,
@@ -35,14 +24,9 @@ import {
   Check
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { uploadToDiscord } from "@/lib/discord-upload";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import { BlockEditor, Block } from "./block-editor";
-
-// New imports for client-side only components
-import dynamic from 'next/dynamic';
 
 // Create client-only versions of the popover components
 const ClientSidePopover = ({ children, ...props }) => {
@@ -84,519 +68,8 @@ const colorPalette = [
   '#eab308', '#ca8a04', '#a3a3a3', '#737373'
 ];
 
-// Remplacer le tableau d'emojis par une version beaucoup plus complète
-const emojiCategories = [
-  {
-    id: 'smileys',
-    title: "😊 Visages & Émotions",
-    emojis: [
-      { emoji: "😀", keywords: ["sourire", "heureux", "joie"] },
-      { emoji: "😃", keywords: ["sourire", "heureux", "joie"] },
-      { emoji: "😄", keywords: ["sourire", "rire", "heureux"] },
-      { emoji: "😁", keywords: ["sourire", "rire", "joie"] },
-      { emoji: "😅", keywords: ["sourire", "sueur", "gêné"] },
-      { emoji: "😂", keywords: ["rire", "pleurs", "mdr", "lol"] },
-      { emoji: "🤣", keywords: ["rire", "mort", "hilarant"] },
-      { emoji: "😊", keywords: ["sourire", "heureux", "content"] },
-      { emoji: "😇", keywords: ["ange", "innocent", "sage"] },
-      { emoji: "🙂", keywords: ["sourire", "léger", "content"] },
-      { emoji: "🙃", keywords: ["sourire", "inversé", "ironique"] },
-      { emoji: "😉", keywords: ["clin d'œil", "complicité"] },
-      { emoji: "😌", keywords: ["soulagé", "paisible", "zen"] },
-      { emoji: "😍", keywords: ["amour", "cœur", "amoureux"] },
-      { emoji: "🥰", keywords: ["amour", "cœur", "adorable"] },
-      { emoji: "😘", keywords: ["bisou", "baiser", "amour"] },
-      { emoji: "😗", keywords: ["bisou", "baiser"] },
-      { emoji: "😙", keywords: ["bisou", "sourire"] },
-      { emoji: "😚", keywords: ["bisou", "fermé"] },
-      { emoji: "😋", keywords: ["délicieux", "savourer"] },
-      { emoji: "😛", keywords: ["langue", "taquin"] },
-      { emoji: "😝", keywords: ["langue", "clin d'œil", "taquin"] },
-      { emoji: "😜", keywords: ["langue", "clin d'œil", "fou"] },
-      { emoji: "🤪", keywords: ["fou", "dingue", "bizarre"] },
-      { emoji: "🤨", keywords: ["soupçonneux", "sceptique"] },
-      { emoji: "🧐", keywords: ["monocle", "curieux", "inspecter"] },
-      { emoji: "🤓", keywords: ["nerd", "lunettes", "intelligent"] },
-      { emoji: "😎", keywords: ["cool", "lunettes", "soleil"] },
-      { emoji: "🤩", keywords: ["étoiles", "impressionné", "wow"] },
-      { emoji: "🥳", keywords: ["fête", "célébration", "party"] },
-      { emoji: "😏", keywords: ["sourire en coin", "narquois"] },
-      { emoji: "😒", keywords: ["mécontent", "blasé"] },
-      { emoji: "😞", keywords: ["déçu", "triste"] },
-      { emoji: "😔", keywords: ["pensif", "triste"] },
-      { emoji: "😟", keywords: ["inquiet", "soucieux"] },
-      { emoji: "😕", keywords: ["perplexe", "confus"] },
-      { emoji: "🙁", keywords: ["légèrement triste", "déçu"] },
-      { emoji: "☹️", keywords: ["triste", "malheureux"] },
-      { emoji: "😣", keywords: ["persévérant", "difficile"] },
-      { emoji: "😖", keywords: ["confus", "troublé"] },
-      { emoji: "😫", keywords: ["fatigué", "épuisé"] },
-      { emoji: "😩", keywords: ["fatigué", "épuisé"] },
-      { emoji: "🥺", keywords: ["suppliant", "mignon", "yeux"] },
-      { emoji: "😢", keywords: ["pleurs", "triste", "larme"] },
-      { emoji: "😭", keywords: ["pleurs", "sanglot", "triste"] },
-      { emoji: "😤", keywords: ["triomphant", "fier"] },
-      { emoji: "😠", keywords: ["fâché", "colère"] },
-      { emoji: "😡", keywords: ["enragé", "furieux"] },
-      { emoji: "🤬", keywords: ["jurons", "gros mots", "furieux"] },
-      { emoji: "🤯", keywords: ["tête qui explose", "choc"] },
-      { emoji: "😳", keywords: ["rougir", "gêné", "surpris"] },
-      { emoji: "🥵", keywords: ["chaud", "transpirant"] },
-      { emoji: "🥶", keywords: ["froid", "gelé"] },
-      { emoji: "😱", keywords: ["crier", "terreur", "horreur"] },
-      { emoji: "😨", keywords: ["peur", "effrayé"] },
-      { emoji: "😰", keywords: ["peur", "sueur froide"] },
-      { emoji: "😥", keywords: ["déçu", "soulagé"] },
-      { emoji: "😓", keywords: ["sueur froide", "échec"] },
-      { emoji: "🤗", keywords: ["câlin", "accolade"] },
-      { emoji: "🤔", keywords: ["pensif", "réfléchir"] },
-      { emoji: "🤭", keywords: ["main sur bouche", "surprise"] },
-      { emoji: "🤫", keywords: ["chut", "silence"] },
-      { emoji: "🤥", keywords: ["menteur", "pinocchio"] },
-      { emoji: "😶", keywords: ["sans bouche", "silencieux"] },
-      { emoji: "😐", keywords: ["neutre", "indifférent"] },
-      { emoji: "😑", keywords: ["sans expression", "indifférent"] },
-      { emoji: "😬", keywords: ["grimace", "malaise"] },
-      { emoji: "🙄", keywords: ["lever les yeux", "exaspéré"] },
-      { emoji: "😯", keywords: ["surpris", "étonné"] },
-      { emoji: "😦", keywords: ["inquiet", "bouche ouverte"] },
-      { emoji: "😧", keywords: ["angoissé", "peiné"] },
-      { emoji: "😮", keywords: ["bouche ouverte", "surpris"] }
-    ]
-  },
-  {
-    id: 'people',
-    title: "👤 Personnes & Corps",
-    emojis: [
-      { emoji: "👋", keywords: ["salut", "bonjour", "au revoir"] },
-      { emoji: "🤚", keywords: ["main", "stop", "arrêt"] },
-      { emoji: "🖐", keywords: ["main", "cinq", "stop"] },
-      { emoji: "✋", keywords: ["main", "stop", "arrêt"] },
-      { emoji: "🖖", keywords: ["spock", "vulcain", "star trek"] },
-      { emoji: "👌", keywords: ["ok", "parfait", "bien"] },
-      { emoji: "🤌", keywords: ["italien", "pincer"] },
-      { emoji: "🤏", keywords: ["petit", "pincer"] },
-      { emoji: "✌️", keywords: ["paix", "victoire", "deux"] },
-      { emoji: "🤞", keywords: ["croiser", "chance", "espoir"] },
-      { emoji: "🫰", keywords: ["cœur", "amour", "coréen"] },
-      { emoji: "🤟", keywords: ["amour", "you", "rock"] },
-      { emoji: "🤘", keywords: ["rock", "metal", "cornes"] },
-      { emoji: "🤙", keywords: ["appeler", "téléphone", "surf"] },
-      { emoji: "👈", keywords: ["pointer", "gauche"] },
-      { emoji: "👉", keywords: ["pointer", "droite"] },
-      { emoji: "👆", keywords: ["pointer", "haut"] },
-      { emoji: "👇", keywords: ["pointer", "bas"] },
-      { emoji: "☝️", keywords: ["un", "attention"] },
-      { emoji: "👍", keywords: ["pouce", "bien", "top"] },
-      { emoji: "👎", keywords: ["pouce", "mal", "non"] },
-      { emoji: "✊", keywords: ["poing", "résistance"] },
-      { emoji: "👊", keywords: ["poing", "coup"] },
-      { emoji: "🤛", keywords: ["poing", "gauche"] },
-      { emoji: "🤜", keywords: ["poing", "droite"] },
-      { emoji: "👏", keywords: ["applaudir", "bravo"] },
-      { emoji: "🙌", keywords: ["hourra", "lever les mains"] },
-      { emoji: "👐", keywords: ["mains ouvertes", "accueil"] },
-      { emoji: "🤲", keywords: ["prier", "supplier"] },
-      { emoji: "🤝", keywords: ["poignée de main", "accord"] },
-      { emoji: "🙏", keywords: ["prier", "s'il vous plaît", "merci"] },
-      { emoji: "✍️", keywords: ["écrire", "main"] },
-      { emoji: "💪", keywords: ["biceps", "fort", "muscle"] },
-      { emoji: "🦾", keywords: ["bras mécanique", "prothèse"] },
-      { emoji: "🦿", keywords: ["jambe mécanique", "prothèse"] },
-      { emoji: "🦵", keywords: ["jambe", "coup de pied"] },
-      { emoji: "🦶", keywords: ["pied", "pas"] },
-      { emoji: "👂", keywords: ["oreille", "écouter"] },
-      { emoji: "🦻", keywords: ["oreille", "appareil auditif"] },
-      { emoji: "👃", keywords: ["nez", "sentir"] },
-      { emoji: "👣", keywords: ["empreintes", "pas"] },
-      { emoji: "👀", keywords: ["yeux", "regarder"] },
-      { emoji: "👁️", keywords: ["œil", "regarder"] },
-      { emoji: "👅", keywords: ["langue", "goûter"] },
-      { emoji: "👄", keywords: ["bouche", "lèvres"] },
-      { emoji: "💋", keywords: ["baiser", "bisou", "lèvres"] },
-      { emoji: "🫦", keywords: ["lèvre mordue", "séduction"] },
-      { emoji: "🧠", keywords: ["cerveau", "intelligence"] },
-      { emoji: "🫀", keywords: ["cœur", "anatomie"] },
-      { emoji: "🫁", keywords: ["poumons", "respirer"] },
-      { emoji: "🦷", keywords: ["dent", "dentiste"] },
-      { emoji: "🦴", keywords: ["os", "squelette"] },
-      { emoji: "👶", keywords: ["bébé", "enfant"] },
-      { emoji: "🧒", keywords: ["enfant", "jeune"] },
-      { emoji: "👦", keywords: ["garçon", "jeune"] },
-      { emoji: "👧", keywords: ["fille", "jeune"] },
-      { emoji: "👱", keywords: ["blond", "cheveux"] },
-      { emoji: "👨", keywords: ["homme", "personne"] },
-      { emoji: "🧔", keywords: ["barbe", "homme"] },
-      { emoji: "👩", keywords: ["femme", "personne"] }
-    ]
-  },
-  {
-    id: 'gestures',
-    title: "🫡 Gestes & Actions",
-    emojis: [
-      { emoji: "🫡", keywords: ["salut", "militaire"] },
-      { emoji: "💁", keywords: ["aide", "information"] },
-      { emoji: "🙋", keywords: ["lever la main", "question"] },
-      { emoji: "🧏", keywords: ["sourd", "malentendant"] },
-      { emoji: "🙇", keywords: ["s'incliner", "révérence"] },
-      { emoji: "🤦", keywords: ["facepalm", "désespoir"] },
-      { emoji: "🤷", keywords: ["haussement d'épaules", "je ne sais pas"] },
-      { emoji: "🧎", keywords: ["s'agenouiller", "genou"] },
-      { emoji: "🧍", keywords: ["debout", "personne"] },
-      { emoji: "🧑‍🦯", keywords: ["aveugle", "canne blanche"] },
-      { emoji: "👨‍🦯", keywords: ["homme aveugle", "canne blanche"] },
-      { emoji: "👩‍🦯", keywords: ["femme aveugle", "canne blanche"] },
-      { emoji: "🧑‍🦼", keywords: ["fauteuil roulant", "motorisé"] },
-      { emoji: "👨‍🦼", keywords: ["homme", "fauteuil roulant motorisé"] },
-      { emoji: "👩‍🦼", keywords: ["femme", "fauteuil roulant motorisé"] },
-      { emoji: "🧑‍🦽", keywords: ["fauteuil roulant", "manuel"] },
-      { emoji: "👨‍🦽", keywords: ["homme", "fauteuil roulant manuel"] },
-      { emoji: "👩‍🦽", keywords: ["femme", "fauteuil roulant manuel"] },
-      { emoji: "🏃", keywords: ["courir", "course"] },
-      { emoji: "💃", keywords: ["danseuse", "danse"] },
-      { emoji: "🕺", keywords: ["danseur", "danse"] },
-      { emoji: "🕴️", keywords: ["homme d'affaires", "lévitation"] },
-      { emoji: "👯", keywords: ["danseurs", "fête"] },
-      { emoji: "🧖", keywords: ["sauna", "vapeur"] },
-      { emoji: "🧗", keywords: ["escalade", "grimper"] }
-    ]
-  },
-  {
-    id: 'animals',
-    title: "🐾 Animaux & Nature",
-    emojis: [
-      { emoji: "🐶", keywords: ["chien", "animal", "compagnie"] },
-      { emoji: "🐱", keywords: ["chat", "animal", "mignon"] },
-      { emoji: "🐭", keywords: ["souris", "petit", "animal"] },
-      { emoji: "🐹", keywords: ["hamster", "animal", "rongeur"] },
-      { emoji: "🐰", keywords: ["lapin", "animal", "mignon"] },
-      { emoji: "🦊", keywords: ["renard", "animal", "roux"] },
-      { emoji: "🐻", keywords: ["ours", "animal", "fort"] },
-      { emoji: "🐼", keywords: ["panda", "animal", "chine"] },
-      { emoji: "🐨", keywords: ["koala", "animal", "australie"] },
-      { emoji: "🐯", keywords: ["tigre", "animal", "rayé"] },
-      { emoji: "🦁", keywords: ["lion", "animal", "roi"] },
-      { emoji: "🐮", keywords: ["vache", "animal", "ferme"] },
-      { emoji: "🐷", keywords: ["cochon", "animal", "ferme"] },
-      { emoji: "🐸", keywords: ["grenouille", "animal", "vert"] },
-      { emoji: "🐵", keywords: ["singe", "animal", "primate"] },
-      { emoji: "🙈", keywords: ["singe", "ne pas voir"] },
-      { emoji: "🙉", keywords: ["singe", "ne pas entendre"] },
-      { emoji: "🙊", keywords: ["singe", "ne pas parler"] },
-      { emoji: "🐒", keywords: ["singe", "animal"] },
-      { emoji: "🐔", keywords: ["poule", "ferme"] },
-      { emoji: "🐧", keywords: ["pingouin", "froid"] },
-      { emoji: "🐦", keywords: ["oiseau", "voler"] },
-      { emoji: "🐤", keywords: ["poussin", "bébé"] },
-      { emoji: "🐣", keywords: ["éclosion", "poussin"] },
-      { emoji: "🐥", keywords: ["poussin", "face"] },
-      { emoji: "🦆", keywords: ["canard", "oiseau"] },
-      { emoji: "🦅", keywords: ["aigle", "oiseau"] },
-      { emoji: "🦉", keywords: ["hibou", "nuit"] },
-      { emoji: "🦇", keywords: ["chauve-souris", "nuit"] },
-      { emoji: "🐺", keywords: ["loup", "animal"] },
-      { emoji: "🐗", keywords: ["sanglier", "forêt"] },
-      { emoji: "🐴", keywords: ["cheval", "animal"] },
-      { emoji: "🦄", keywords: ["licorne", "fantaisie"] },
-      { emoji: "🐝", keywords: ["abeille", "miel"] },
-      { emoji: "🪱", keywords: ["ver", "sol"] },
-      { emoji: "🐛", keywords: ["chenille", "insecte"] },
-      { emoji: "🦋", keywords: ["papillon", "insecte"] },
-      { emoji: "🐌", keywords: ["escargot", "lent"] },
-      { emoji: "🐞", keywords: ["coccinelle", "insecte"] },
-      { emoji: "🐜", keywords: ["fourmi", "insecte"] },
-      { emoji: "🪰", keywords: ["mouche", "insecte"] },
-      { emoji: "🪲", keywords: ["coléoptère", "insecte"] },
-      { emoji: "🪳", keywords: ["cafard", "insecte"] },
-      { emoji: "🦟", keywords: ["moustique", "insecte"] },
-      { emoji: "🦗", keywords: ["cricket", "insecte"] },
-      { emoji: "🕷", keywords: ["araignée", "insecte"] },
-      { emoji: "🕸", keywords: ["toile", "araignée"] },
-      { emoji: "🦂", keywords: ["scorpion", "piqûre"] },
-      { emoji: "🐢", keywords: ["tortue", "lent"] },
-      { emoji: "🐍", keywords: ["serpent", "reptile"] },
-      { emoji: "🦎", keywords: ["lézard", "reptile"] },
-      { emoji: "🦖", keywords: ["t-rex", "dinosaure"] },
-      { emoji: "🦕", keywords: ["sauropode", "dinosaure"] },
-      { emoji: "🐙", keywords: ["pieuvre", "mer"] },
-      { emoji: "🦑", keywords: ["calmar", "mer"] }
-    ]
-  },
-  {
-    id: 'nature',
-    title: "🌿 Nature & Plantes",
-    emojis: [
-      { emoji: "🌸", keywords: ["fleur", "cerisier"] },
-      { emoji: "💮", keywords: ["fleur", "blanche"] },
-      { emoji: "🏵️", keywords: ["rosette", "fleur"] },
-      { emoji: "🌹", keywords: ["rose", "fleur"] },
-      { emoji: "🥀", keywords: ["fleur fanée", "mort"] },
-      { emoji: "🌺", keywords: ["hibiscus", "fleur"] },
-      { emoji: "🌻", keywords: ["tournesol", "fleur"] },
-      { emoji: "🌼", keywords: ["fleur", "floraison"] },
-      { emoji: "🌷", keywords: ["tulipe", "fleur"] },
-      { emoji: "🌱", keywords: ["pousse", "jeune"] },
-      { emoji: "🪴", keywords: ["plante en pot", "intérieur"] },
-      { emoji: "🌲", keywords: ["arbre", "sapin"] },
-      { emoji: "🌳", keywords: ["arbre", "feuillu"] },
-      { emoji: "🌴", keywords: ["palmier", "tropical"] },
-      { emoji: "🌵", keywords: ["cactus", "désert"] },
-      { emoji: "🌾", keywords: ["riz", "céréale"] },
-      { emoji: "🌿", keywords: ["herbe", "plante"] },
-      { emoji: "☘️", keywords: ["trèfle", "irlande"] },
-      { emoji: "🍀", keywords: ["trèfle", "chance"] },
-      { emoji: "🍁", keywords: ["feuille", "érable"] },
-      { emoji: "🍂", keywords: ["feuille", "automne"] },
-      { emoji: "🍃", keywords: ["feuille", "vent"] },
-      { emoji: "🍄", keywords: ["champignon", "forêt"] },
-      { emoji: "🪨", keywords: ["roche", "pierre"] },
-      { emoji: "🪵", keywords: ["bois", "bûche"] },
-      { emoji: "🌑", keywords: ["nouvelle lune", "nuit"] },
-      { emoji: "🌒", keywords: ["premier croissant", "lune"] },
-      { emoji: "🌓", keywords: ["premier quartier", "lune"] },
-      { emoji: "🌔", keywords: ["gibbeuse croissante", "lune"] },
-      { emoji: "🌕", keywords: ["pleine lune", "nuit"] },
-      { emoji: "🌖", keywords: ["gibbeuse décroissante", "lune"] },
-      { emoji: "🌗", keywords: ["dernier quartier", "lune"] },
-      { emoji: "🌘", keywords: ["dernier croissant", "lune"] },
-      { emoji: "🌙", keywords: ["croissant de lune", "nuit"] },
-      { emoji: "🌚", keywords: ["nouvelle lune", "visage"] },
-      { emoji: "🌛", keywords: ["premier quartier", "visage"] },
-      { emoji: "🌜", keywords: ["dernier quartier", "visage"] },
-      { emoji: "☀️", keywords: ["soleil", "chaud"] },
-      { emoji: "🌝", keywords: ["pleine lune", "visage"] },
-      { emoji: "🌞", keywords: ["soleil", "visage"] },
-      { emoji: "🪐", keywords: ["saturne", "planète"] },
-      { emoji: "⭐", keywords: ["étoile", "brillant"] },
-      { emoji: "🌟", keywords: ["étoile", "brillante"] },
-      { emoji: "🌠", keywords: ["étoile filante", "vœu"] },
-      { emoji: "🌌", keywords: ["voie lactée", "étoiles"] },
-      { emoji: "☁️", keywords: ["nuage", "temps"] },
-      { emoji: "⛅", keywords: ["nuage", "soleil"] },
-      { emoji: "⛈️", keywords: ["nuage", "orage"] },
-      { emoji: "🌤️", keywords: ["soleil", "nuage"] },
-      { emoji: "🌥️", keywords: ["soleil", "grand nuage"] },
-      { emoji: "🌦️", keywords: ["soleil", "pluie"] }
-    ]
-  },
-  {
-    id: 'food',
-    title: "🍎 Nourriture & Boissons",
-    emojis: [
-      { emoji: "🍎", keywords: ["pomme", "fruit", "rouge"] },
-      { emoji: "🍏", keywords: ["pomme", "fruit", "vert"] },
-      { emoji: "🍐", keywords: ["poire", "fruit"] },
-      { emoji: "🍊", keywords: ["orange", "fruit", "agrume"] },
-      { emoji: "🍋", keywords: ["citron", "fruit", "agrume"] },
-      { emoji: "🍌", keywords: ["banane", "fruit", "jaune"] },
-      { emoji: "🍉", keywords: ["pastèque", "fruit", "rouge"] },
-      { emoji: "🍇", keywords: ["raisin", "fruit", "violet"] },
-      { emoji: "🍓", keywords: ["fraise", "fruit", "rouge"] },
-      { emoji: "🫐", keywords: ["myrtilles", "fruit", "bleu"] },
-      { emoji: "🍈", keywords: ["melon", "fruit"] },
-      { emoji: "🍒", keywords: ["cerise", "fruit", "rouge"] },
-      { emoji: "🍑", keywords: ["pêche", "fruit"] },
-      { emoji: "🥭", keywords: ["mangue", "fruit", "tropical"] },
-      { emoji: "🍍", keywords: ["ananas", "fruit", "tropical"] },
-      { emoji: "🥥", keywords: ["noix de coco", "fruit", "tropical"] },
-      { emoji: "🥝", keywords: ["kiwi", "fruit", "vert"] },
-      { emoji: "🍅", keywords: ["tomate", "fruit", "légume"] },
-      { emoji: "🍆", keywords: ["aubergine", "légume"] },
-      { emoji: "🥑", keywords: ["avocat", "fruit"] },
-      { emoji: "🥦", keywords: ["brocoli", "légume"] },
-      { emoji: "🥬", keywords: ["légume", "vert", "feuille"] },
-      { emoji: "🥒", keywords: ["concombre", "légume"] },
-      { emoji: "🌶", keywords: ["piment", "épicé"] },
-      { emoji: "🫑", keywords: ["poivron", "légume"] },
-      { emoji: "🌽", keywords: ["maïs", "légume"] },
-      { emoji: "🥕", keywords: ["carotte", "légume"] },
-      { emoji: "🫒", keywords: ["olive", "fruit"] },
-      { emoji: "🧄", keywords: ["ail", "épice"] },
-      { emoji: "🧅", keywords: ["oignon", "légume"] },
-      { emoji: "🥔", keywords: ["pomme de terre", "légume"] },
-      { emoji: "🍠", keywords: ["patate douce", "légume"] },
-      { emoji: "🥐", keywords: ["croissant", "pâtisserie"] },
-      { emoji: "🥖", keywords: ["baguette", "pain"] },
-      { emoji: "🍞", keywords: ["pain", "mie"] },
-      { emoji: "🥨", keywords: ["bretzel", "salé"] },
-      { emoji: "🥯", keywords: ["bagel", "pain"] },
-      { emoji: "🧀", keywords: ["fromage", "laitier"] },
-      { emoji: "🥚", keywords: ["œuf", "aliment"] },
-      { emoji: "🍳", keywords: ["cuisson", "œuf"] },
-      { emoji: "🧈", keywords: ["beurre", "laitier"] },
-      { emoji: "🥞", keywords: ["pancakes", "petit déjeuner"] },
-      { emoji: "🧇", keywords: ["gaufre", "petit déjeuner"] },
-      { emoji: "🥓", keywords: ["bacon", "viande"] },
-      { emoji: "🥩", keywords: ["steak", "viande"] },
-      { emoji: "🍗", keywords: ["poulet", "viande"] },
-      { emoji: "🍖", keywords: ["viande", "os"] },
-      { emoji: "🦴", keywords: ["os", "viande"] },
-      { emoji: "🌭", keywords: ["hot dog", "saucisse"] },
-      { emoji: "🍔", keywords: ["hamburger", "fast food"] },
-      { emoji: "🍟", keywords: ["frites", "fast food"] }
-    ]
-  },
-  {
-    id: 'travel',
-    title: "🚗 Voyage & Lieux",
-    emojis: [
-      { emoji: "🚗", keywords: ["voiture", "auto", "transport"] },
-      { emoji: "🚕", keywords: ["taxi", "voiture", "jaune"] },
-      { emoji: "🚙", keywords: ["suv", "voiture", "4x4"] },
-      { emoji: "🚌", keywords: ["bus", "transport", "public"] },
-      { emoji: "🚎", keywords: ["trolleybus", "transport"] },
-      { emoji: "🏎", keywords: ["formule 1", "course", "rapide"] },
-      { emoji: "🚓", keywords: ["police", "voiture", "urgence"] },
-      { emoji: "🚑", keywords: ["ambulance", "urgence", "médical"] },
-      { emoji: "🚒", keywords: ["pompier", "urgence", "feu"] },
-      { emoji: "🚐", keywords: ["minibus", "transport"] },
-      { emoji: "🛻", keywords: ["pickup", "camionnette"] },
-      { emoji: "🚚", keywords: ["camion", "livraison"] },
-      { emoji: "🚛", keywords: ["poids lourd", "transport"] },
-      { emoji: "🚜", keywords: ["tracteur", "ferme", "agricole"] },
-      { emoji: "🏍", keywords: ["moto", "véhicule"] },
-      { emoji: "🛵", keywords: ["scooter", "véhicule"] },
-      { emoji: "🚲", keywords: ["vélo", "bicyclette"] },
-      { emoji: "🛴", keywords: ["trottinette", "mobilité"] },
-      { emoji: "🛹", keywords: ["skateboard", "planche"] },
-      { emoji: "🛼", keywords: ["roller", "patin"] },
-      { emoji: "🚁", keywords: ["hélicoptère", "vol"] },
-      { emoji: "🛸", keywords: ["ovni", "extraterrestre"] },
-      { emoji: "✈️", keywords: ["avion", "vol", "voyage"] },
-      { emoji: "🛩", keywords: ["petit avion", "vol"] },
-      { emoji: "🛫", keywords: ["avion", "décollage"] },
-      { emoji: "🛬", keywords: ["avion", "atterrissage"] },
-      { emoji: "🪂", keywords: ["parachute", "saut"] },
-      { emoji: "⛵", keywords: ["voilier", "bateau"] },
-      { emoji: "🚤", keywords: ["hors-bord", "bateau"] },
-      { emoji: "🛥", keywords: ["bateau", "moteur"] },
-      { emoji: "🛳", keywords: ["paquebot", "navire"] },
-      { emoji: "⛴", keywords: ["ferry", "bateau"] },
-      { emoji: "🚢", keywords: ["bateau", "navire"] },
-      { emoji: "⚓", keywords: ["ancre", "bateau"] },
-      { emoji: "🚆", keywords: ["train", "transport"] },
-      { emoji: "🚄", keywords: ["train", "rapide", "TGV"] },
-      { emoji: "🚅", keywords: ["train", "rapide", "bullet"] },
-      { emoji: "🚇", keywords: ["métro", "souterrain"] },
-      { emoji: "🚈", keywords: ["train léger", "transport"] },
-      { emoji: "🚉", keywords: ["gare", "train"] },
-      { emoji: "🚊", keywords: ["tramway", "transport"] }
-    ]
-  },
-  {
-    id: 'objects',
-    title: "⚽ Objets & Symboles",
-    emojis: [
-      { emoji: "⚽", keywords: ["football", "ballon", "sport"] },
-      { emoji: "🏀", keywords: ["basket", "ballon", "sport"] },
-      { emoji: "🏈", keywords: ["rugby", "américain", "sport"] },
-      { emoji: "⚾", keywords: ["baseball", "ballon", "sport"] },
-      { emoji: "🥎", keywords: ["softball", "ballon", "sport"] },
-      { emoji: "🎾", keywords: ["tennis", "ballon", "sport"] },
-      { emoji: "🏐", keywords: ["volley", "ballon", "sport"] },
-      { emoji: "🏉", keywords: ["rugby", "ballon", "sport"] },
-      { emoji: "🥏", keywords: ["frisbee", "disque"] },
-      { emoji: "🎱", keywords: ["billard", "huit", "jeu"] },
-      { emoji: "🪀", keywords: ["yoyo", "jouet"] },
-      { emoji: "🏓", keywords: ["ping pong", "tennis de table"] },
-      { emoji: "🏸", keywords: ["badminton", "raquette"] },
-      { emoji: "🏒", keywords: ["hockey", "bâton", "glace"] },
-      { emoji: "🏑", keywords: ["hockey", "gazon", "bâton"] },
-      { emoji: "🥍", keywords: ["lacrosse", "sport"] },
-      { emoji: "🏏", keywords: ["cricket", "sport"] },
-      { emoji: "🪃", keywords: ["boomerang", "lancer"] },
-      { emoji: "🥅", keywords: ["but", "filet"] },
-      { emoji: "⛳", keywords: ["drapeau", "golf"] },
-      { emoji: "🪁", keywords: ["cerf-volant", "vent"] },
-      { emoji: "🏹", keywords: ["arc", "flèche"] },
-      { emoji: "🎣", keywords: ["pêche", "poisson"] },
-      { emoji: "🤿", keywords: ["plongée", "masque"] },
-      { emoji: "🎽", keywords: ["maillot", "course"] },
-      { emoji: "🎿", keywords: ["ski", "neige"] },
-      { emoji: "🛷", keywords: ["luge", "neige"] },
-      { emoji: "🥌", keywords: ["pierre", "curling"] },
-      { emoji: "🎯", keywords: ["cible", "dard"] },
-      { emoji: "🪄", keywords: ["baguette", "magie"] },
-      { emoji: "🧿", keywords: ["nazar", "amulette"] },
-      { emoji: "🎮", keywords: ["manette", "jeu vidéo"] },
-      { emoji: "🕹️", keywords: ["joystick", "jeu"] },
-      { emoji: "🎲", keywords: ["dé", "jeu"] },
-      { emoji: "♟️", keywords: ["pion", "échecs"] },
-      { emoji: "🎭", keywords: ["arts", "théâtre"] },
-      { emoji: "🔮", keywords: ["boule de cristal", "magie"] },
-      { emoji: "🪅", keywords: ["piñata", "fête"] },
-      { emoji: "🧸", keywords: ["ours en peluche", "jouet"] },
-      { emoji: "🪩", keywords: ["boule disco", "fête"] },
-      { emoji: "🪫", keywords: ["batterie", "faible"] },
-      { emoji: "🔋", keywords: ["batterie", "énergie"] },
-      { emoji: "🔌", keywords: ["prise", "électricité"] },
-      { emoji: "📱", keywords: ["téléphone", "mobile"] },
-      { emoji: "💻", keywords: ["ordinateur", "laptop"] },
-      { emoji: "🖨️", keywords: ["imprimante", "bureau"] },
-      { emoji: "📷", keywords: ["appareil photo", "photo"] },
-      { emoji: "📡", keywords: ["antenne", "satellite"] }
-    ]
-  },
-  {
-    id: 'symbols',
-    title: "💯 Symboles & Signes",
-    emojis: [
-      { emoji: "❤️", keywords: ["cœur", "amour", "rouge"] },
-      { emoji: "🧡", keywords: ["cœur", "orange", "amour"] },
-      { emoji: "💛", keywords: ["cœur", "jaune", "amour"] },
-      { emoji: "💚", keywords: ["cœur", "vert", "amour"] },
-      { emoji: "💙", keywords: ["cœur", "bleu", "amour"] },
-      { emoji: "💜", keywords: ["cœur", "violet", "amour"] },
-      { emoji: "🖤", keywords: ["cœur", "noir", "amour"] },
-      { emoji: "🤍", keywords: ["cœur", "blanc", "amour"] },
-      { emoji: "🤎", keywords: ["cœur", "marron", "amour"] },
-      { emoji: "💔", keywords: ["cœur", "brisé", "rupture"] },
-      { emoji: "❤️‍🔥", keywords: ["cœur", "feu", "passion"] },
-      { emoji: "❤️‍🩹", keywords: ["cœur", "guérison", "convalescence"] },
-      { emoji: "❣️", keywords: ["cœur", "exclamation"] },
-      { emoji: "💕", keywords: ["cœurs", "amour"] },
-      { emoji: "💞", keywords: ["cœurs", "tournants"] },
-      { emoji: "💓", keywords: ["cœur", "battement"] },
-      { emoji: "💗", keywords: ["cœur", "grandissant"] },
-      { emoji: "💖", keywords: ["cœur", "étincelles"] },
-      { emoji: "💘", keywords: ["cœur", "flèche"] },
-      { emoji: "💝", keywords: ["cœur", "ruban"] },
-      { emoji: "💟", keywords: ["cœur", "décoration"] },
-      { emoji: "☮️", keywords: ["paix", "symbole"] },
-      { emoji: "✝️", keywords: ["croix", "religion"] },
-      { emoji: "☪️", keywords: ["islam", "religion"] },
-      { emoji: "🕉️", keywords: ["om", "hindou"] },
-      { emoji: "☸️", keywords: ["dharma", "religion"] },
-      { emoji: "✡️", keywords: ["étoile", "david", "juif"] },
-      { emoji: "🔯", keywords: ["étoile", "six branches"] },
-      { emoji: "🕎", keywords: ["menorah", "judaïsme"] },
-      { emoji: "☯️", keywords: ["yin yang", "équilibre"] },
-      { emoji: "☦️", keywords: ["croix", "orthodoxe"] },
-      { emoji: "🛐", keywords: ["lieu", "culte"] },
-      { emoji: "⛎", keywords: ["ophiuchus", "zodiaque"] },
-      { emoji: "♈", keywords: ["bélier", "zodiaque"] },
-      { emoji: "♉", keywords: ["taureau", "zodiaque"] },
-      { emoji: "♊", keywords: ["gémeaux", "zodiaque"] },
-      { emoji: "♋", keywords: ["cancer", "zodiaque"] },
-      { emoji: "♌", keywords: ["lion", "zodiaque"] },
-      { emoji: "♍", keywords: ["vierge", "zodiaque"] },
-      { emoji: "♎", keywords: ["balance", "zodiaque"] },
-      { emoji: "♏", keywords: ["scorpion", "zodiaque"] },
-      { emoji: "♐", keywords: ["sagittaire", "zodiaque"] },
-      { emoji: "♑", keywords: ["capricorne", "zodiaque"] },
-      { emoji: "♒", keywords: ["verseau", "zodiaque"] },
-      { emoji: "♓", keywords: ["poissons", "zodiaque"] },
-      { emoji: "🆔", keywords: ["id", "identité"] },
-      { emoji: "⚛️", keywords: ["atome", "science"] },
-      { emoji: "🉑", keywords: ["accepter", "japonais"] },
-      { emoji: "☢️", keywords: ["radioactif", "danger"] },
-      { emoji: "☣️", keywords: ["biohazard", "danger"] }
-    ]
-  }
-];
-
 // Emoji picker amélioré
-const EmojiPicker = ({ onEmojiSelect, isOpen, onOpenChange }: any) => {
+const EmojiPicker = ({ onEmojiSelect, onOpenChange }: Record<string, unknown>) => {
   const [isMounted, setIsMounted] = useState(false);
   
   useEffect(() => {
@@ -630,7 +103,7 @@ const EmojiPicker = ({ onEmojiSelect, isOpen, onOpenChange }: any) => {
 };
 
 // Palette de couleurs améliorée
-const ColorPalette = ({ selectedColor, onColorSelect }: any) => {
+const ColorPalette = ({ selectedColor, onColorSelect }: Record<string, unknown>) => {
   const [isMounted, setIsMounted] = useState(false);
   
   useEffect(() => {
@@ -672,7 +145,7 @@ interface ReportEditorProps {
     color: string;
     icon: string;
   };
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
   isEditing?: boolean;
   folderId?: string;
@@ -693,8 +166,8 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
         
         if (matches.length > 0) {
           return matches.map((match, index) => {
-            const [_, type, id, content] = match;
-            let processedContent: any = content.trim();
+            const [type, id, content] = match;
+            const processedContent: Record<string, unknown> = content.trim();
             
             // Process specific block types
             switch (type) {
@@ -837,7 +310,6 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
   );
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId || null);
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -896,7 +368,7 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
 
   // Convertir les blocs en contenu markdown pour la sauvegarde - CORRIGÉ
   const convertBlocksToMarkdown = useCallback(() => {
-    return blocks.map((block, index) => {
+    return blocks.map((block) => {
       let blockContent = '';
       
       switch (block.type) {
@@ -944,7 +416,7 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
           }
           break;
         case 'checklist':
-          blockContent = block.content.map((item: any) => 
+          blockContent = block.content.map((item: Record<string, unknown>) => 
             `- [${item.checked ? 'x' : ' '}] ${item.text}`
           ).join('\n');
           break;
@@ -988,47 +460,12 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
     }).join('\n\n');
   }, [blocks]);
 
-  const handleImageUpload = useCallback(async (file: File) => {
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("L'image est trop lourde. Maximum 8MB.");
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const imageUrl = await uploadToDiscord(file);
-      // Insérer l'image sous forme de bloc
-      setBlocks(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          type: 'image',
-          content: {
-            src: imageUrl,
-            alt: file.name
-          },
-          order: prev.length
-        }
-      ]);
-      toast.success("Image ajoutée avec succès");
-    } catch (error) {
-      console.error("Erreur upload:", error);
-      toast.error("Erreur lors de l'upload de l'image");
-    } finally {
-      setIsUploading(false);
-    }
-  }, []);
-
   const addTag = (tagValue?: string) => {
     const tagToAdd = tagValue || newTag.trim();
     if (tagToAdd && !tags.includes(tagToAdd)) {
       setTags([...tags, tagToAdd]);
       setNewTag('');
     }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
   // Gestion de l'ajout automatique de tag
@@ -1064,6 +501,7 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
         parsedTags = JSON.parse(debouncedTags);
       } catch (e) {
         parsedTags = [];
+        console.error('Erreur de parsing des tags:', e);
       }
 
       const draftData = {
@@ -1729,7 +1167,7 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
               </div>
 
               <div className="space-y-2">
-                <Label>Niveau d'importance</Label>
+                <Label>Niveau d&apos;importance</Label>
                 <Select value={importance} onValueChange={setImportance}>
                   <SelectTrigger>
                     <SelectValue />
@@ -1760,13 +1198,13 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
                   <ClientSidePopover trigger={
                     <Button variant="outline" size="sm">
                       <Smile className="h-4 w-4 mr-2" />
-                      Changer l'icône
+                      Changer l&apos;icône
                     </Button>
                   }>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm">
                         <Smile className="h-4 w-4 mr-2" />
-                        Changer l'icône
+                        Changer l&apos;icône
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="p-0" align="start">
@@ -1782,7 +1220,7 @@ export function ReportEditor({ initialData, onSave, onCancel, isEditing = false,
 
               {/* Sélecteur de couleur avec popover */}
               <div className="space-y-2">
-                <Label>Couleur d'accentuation</Label>
+                <Label>Couleur d&apos;accentuation</Label>
                 <div className="flex items-center gap-3">
                   <div 
                     className="w-8 h-8 rounded-lg border-2 border-ring shadow-sm"

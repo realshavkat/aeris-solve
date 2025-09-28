@@ -123,7 +123,7 @@ export function ShareFolderDialog({ folder, open, onClose, onKeyGenerated }: Sha
               </div>
             ) : (
               <div className="text-center py-8 border border-dashed border-border rounded-lg">
-                <p className="text-muted-foreground mb-4">Aucune clé d'accès générée</p>
+                <p className="text-muted-foreground mb-4">Aucune clé d&apos;accès générée</p>
                 <Button
                   onClick={() => handleGenerateKey(false)}
                   disabled={isGenerating}
@@ -140,8 +140,8 @@ export function ShareFolderDialog({ folder, open, onClose, onKeyGenerated }: Sha
               <div className="bg-muted/50 p-4 rounded-lg">
                 <h4 className="font-medium mb-2">Instructions de partage</h4>
                 <p className="text-sm text-muted-foreground">
-                  Partagez cette clé d'accès avec les personnes que vous souhaitez inviter. 
-                  Elles pourront rejoindre le dossier en utilisant le bouton "Rejoindre un dossier" 
+                  Partagez cette clé d&apos;accès avec les personnes que vous souhaitez inviter. 
+                  Elles pourront rejoindre le dossier en utilisant le bouton &quot;Rejoindre un dossier&quot;
                   sur la page principale.
                 </p>
               </div>

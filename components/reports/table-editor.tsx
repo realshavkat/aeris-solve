@@ -17,8 +17,6 @@ import {
   AlignRight,
   Bold,
   Italic,
-  Type,
-  Palette,
   RotateCcw
 } from "lucide-react";
 import {
@@ -242,7 +240,7 @@ export function TableEditor({ onTableUpdate, initialData }: TableEditorProps) {
   // Mettre à jour le markdown quand les données ou les styles changent
   useEffect(() => {
     onTableUpdate(generateMarkdown());
-  }, [tableData, cellStyles]);
+  });
 
   return (
     <div className="p-4 border border-border rounded-lg bg-card my-4">

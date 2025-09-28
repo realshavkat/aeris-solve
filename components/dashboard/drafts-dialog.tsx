@@ -42,7 +42,7 @@ export function DraftsDialog({ open, onClose, onSelectDraft, folderId }: DraftsD
     if (open && folderId) {
       fetchDrafts();
     }
-  }, [open, folderId]);
+  });
 
   const fetchDrafts = async () => {
     setLoading(true);

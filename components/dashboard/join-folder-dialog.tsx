@@ -10,7 +10,7 @@ import { toast } from "sonner";
 interface JoinFolderDialogProps {
   open: boolean;
   onClose: () => void;
-  onJoined: (folder: any) => void;
+  onJoined: (folder: Record<string, unknown>) => void;
 }
 
 export function JoinFolderDialog({ open, onClose, onJoined }: JoinFolderDialogProps) {
@@ -94,7 +94,7 @@ export function JoinFolderDialog({ open, onClose, onJoined }: JoinFolderDialogPr
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="accessKey">Clé d'accès</Label>
+              <Label htmlFor="accessKey">Clé d&apos;accès</Label>
               <Input
                 id="accessKey"
                 value={accessKey}
@@ -103,7 +103,7 @@ export function JoinFolderDialog({ open, onClose, onJoined }: JoinFolderDialogPr
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Demandez la clé d'accès au propriétaire du dossier
+                Demandez la clé d&apos;accès au propriétaire du dossier
               </p>
             </div>
           </div>

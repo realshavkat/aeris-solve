@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,11 +69,11 @@ export default function FolderPage() {
 
   const { hasPermission } = usePermissions(); // Plus de isLoading
 
-  const [folder, setFolder] = useState<any>(null);
-  const [reports, setReports] = useState<any[]>([]);
+  const [folder, setFolder] = useState<Record<string, unknown>>(null);
+  const [reports, setReports] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
-  const [editingReport, setEditingReport] = useState<any>(null);
+  const [editingReport, setEditingReport] = useState<Record<string, unknown>>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>('updatedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -86,7 +86,7 @@ export default function FolderPage() {
   useEffect(() => {
     fetchFolder();
     fetchReports();
-  }, [folderId]);
+  });
 
   const fetchFolder = async () => {
     try {
@@ -114,7 +114,7 @@ export default function FolderPage() {
     }
   };
 
-  const handleCreateReport = async (data: any) => {
+  const handleCreateReport = async (data: Record<string, unknown>) => {
     try {
       const response = await fetch("/api/reports", {
         method: "POST",
@@ -132,7 +132,7 @@ export default function FolderPage() {
     }
   };
 
-  const handleEditReport = async (data: any) => {
+  const handleEditReport = async (data: Record<string, unknown>) => {
     if (!editingReport?._id) {
       console.error("Pas d'ID de rapport pour la modification");
       toast.error("Erreur: ID de rapport manquant");
@@ -238,7 +238,7 @@ export default function FolderPage() {
 
   const filteredAndSortedReports = getSortedAndFilteredReports();
 
-  const handleSelectDraft = (draft: any) => {
+  const handleSelectDraft = (draft: Record<string, unknown>) => {
     setEditingReport({
       ...draft,
       _id: null,

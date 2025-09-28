@@ -27,7 +27,7 @@ export async function GET(
 
     // Vérifier que l'utilisateur a accès au dossier
     const hasAccess = folder.ownerId === session.user.id || 
-                      folder.members?.some((member: any) => member.id === session.user.id);
+                      folder.members?.some((member: Record<string, unknown>) => member.id === session.user.id);
 
     if (!hasAccess) {
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });

@@ -4,7 +4,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { uploadToDiscord } from "@/lib/discord-upload";
 import { toast } from "sonner";
@@ -25,11 +24,8 @@ import {
   AlignRight,
   Bold,
   Italic,
-  Underline,
   Strikethrough,
   Link,
-  Hash,
-  Palette,
   ChevronUp,
   ChevronDown,
   MoveVertical,
@@ -37,14 +33,12 @@ import {
   List, // AJOUT: Import manquant de List
   ListOrdered // AJOUT: Import de ListOrdered aussi
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
 
 export interface Block {
   id: string;
   type: 'text' | 'heading' | 'list' | 'table' | 'image' | 'quote' | 'code' | 'divider' | 'checklist' | 'spacer';
-  content: any;
+  content: Record<string, unknown>;
   order: number;
 }
 
@@ -89,7 +83,7 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
     if (value !== content) {
       setContent(value || '');
     }
-  }, [value]);
+  }, [value, content]);
 
   // Parser le markdown en HTML pour l'aperçu - SUPPRESSION des couleurs
   const parseMarkdown = (text: string) => {
@@ -684,7 +678,7 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
 };
 
 // Bloc de texte refait avec le nouvel éditeur - CORRECTION pour sauvegarder l'alignement
-const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(block.content?.text || block.content || '');
   const [alignment, setAlignment] = useState(block.content?.alignment || 'left'); // AJOUT: État pour l'alignement
@@ -869,7 +863,7 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
 };
 
 // NOUVEAU: Composant pour un bloc Quote séparé
-const QuoteBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const QuoteBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(block.content || '');
 
@@ -961,7 +955,7 @@ const QuoteBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
 };
 
 // Composant pour un bloc d'image avec alignement et texte (AMÉLIORÉ)
-const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   const [isUploading, setIsUploading] = useState(false);
   const [alignment, setAlignment] = useState(block.content?.alignment || 'center');
   const [wrapText, setWrapText] = useState(block.content?.wrapText || '');
@@ -1010,7 +1004,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
     }
   };
 
-  const updateContent = (key: string, value: any) => {
+  const updateContent = (key: string, value: Record<string, unknown>) => {
     const newContent = { 
       ...block.content,
       [key]: value 
@@ -1022,14 +1016,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
   };
 
   const removeAdditionalImage = (index: number) => {
-    const newAdditionalImages = additionalImages.filter((_: any, i: number) => i !== index);
-    setAdditionalImages(newAdditionalImages);
-    updateContent('additionalImages', newAdditionalImages);
-  };
-
-  const updateAdditionalImageCaption = (index: number, caption: string) => {
-    const newAdditionalImages = [...additionalImages];
-    newAdditionalImages[index].caption = caption;
+    const newAdditionalImages = additionalImages.filter((_: Record<string, unknown>, i: number) => i !== index);
     setAdditionalImages(newAdditionalImages);
     updateContent('additionalImages', newAdditionalImages);
   };
@@ -1047,7 +1034,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
     if (block.content?.additionalImages !== additionalImages) {
       setAdditionalImages(block.content?.additionalImages || []);
     }
-  }, [block.content]);
+  }, [block.content, onChange, alignment, wrapText, caption, additionalImages]);
 
   return (
     <div className="group relative">
@@ -1146,15 +1133,15 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
               {alignment === 'left' && (
                 <>
                   <div className="flex-shrink-0 space-y-2">
-                    <img 
+                    <Image 
                       src={block.content.src} 
                       alt={block.content.alt || ''} 
                       className="rounded-lg max-h-64 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
                     />
                     {/* Images additionnelles */}
-                    {additionalImages.map((img: any, index: number) => (
+                    {additionalImages.map((img: Record<string, unknown>, index: number) => (
                       <div key={index} className="relative group/img">
-                        <img 
+                        <Image 
                           src={img.src} 
                           alt={img.alt || ''} 
                           className="rounded-lg max-h-48 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
@@ -1198,15 +1185,15 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
                     />
                   </div>
                   <div className="flex-shrink-0 space-y-2">
-                    <img 
+                    <Image 
                       src={block.content.src} 
                       alt={block.content.alt || ''} 
                       className="rounded-lg max-h-64 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
                     />
                     {/* Images additionnelles */}
-                    {additionalImages.map((img: any, index: number) => (
+                    {additionalImages.map((img: Record<string, unknown>, index: number) => (
                       <div key={index} className="relative group/img">
-                        <img 
+                        <Image 
                           src={img.src} 
                           alt={img.alt || ''} 
                           className="rounded-lg max-h-48 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
@@ -1227,7 +1214,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
 
               {alignment === 'center' && (
                 <div className="text-center space-y-4">
-                  <img 
+                  <Image 
                     src={block.content.src} 
                     alt={block.content.alt || ''} 
                     className="rounded-lg max-h-96 shadow-lg border border-border hover:shadow-xl transition-shadow duration-300 mx-auto"
@@ -1236,9 +1223,9 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
                   {/* Images additionnelles en grille */}
                   {additionalImages.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-w-2xl mx-auto">
-                      {additionalImages.map((img: any, index: number) => (
+                      {additionalImages.map((img: Record<string, unknown>, index: number) => (
                         <div key={index} className="relative group/img">
-                          <img 
+                          <Image 
                             src={img.src} 
                             alt={img.alt || ''} 
                             className="rounded-lg max-h-48 w-full object-cover shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
@@ -1308,7 +1295,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
               </div>
             ) : (
               <>
-                <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground" alt={''} />
                 <p className="text-sm text-muted-foreground">Cliquez pour ajouter une image</p>
               </>
             )}
@@ -1342,7 +1329,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
 };
 
 // CodeBlock avec éditeur amélioré
-const CodeBlock = ({ block, onChange, onDelete }: any) => {
+const CodeBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
   const [content, setContent] = useState(block.content?.code || '');
   const [language, setLanguage] = useState(block.content?.language || 'javascript');
   const [isEditing, setIsEditing] = useState(false);
@@ -1421,7 +1408,7 @@ const CodeBlock = ({ block, onChange, onDelete }: any) => {
 };
 
 // Composant pour un bloc de titre
-const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   const [content, setContent] = useState(block.content?.text || '');
   const [level, setLevel] = useState(block.content?.level || 1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1508,7 +1495,7 @@ const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMove
 };
 
 // Composant pour une liste à cocher avec checkbox stylisée
-const ChecklistBlock = ({ block, onChange, onDelete }: any) => {
+const ChecklistBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
   const [items, setItems] = useState(block.content || [{ text: '', checked: false }]);
 
   const updateItem = (index: number, text: string, checked?: boolean) => {
@@ -1529,7 +1516,7 @@ const ChecklistBlock = ({ block, onChange, onDelete }: any) => {
 
   const removeItem = (index: number) => {
     if (items.length > 1) {
-      const newItems = items.filter((_: any, i: number) => i !== index);
+      const newItems = items.filter((_: Record<string, unknown>, i: number) => i !== index);
       setItems(newItems);
       onChange({ ...block, content: newItems });
     }
@@ -1549,7 +1536,7 @@ const ChecklistBlock = ({ block, onChange, onDelete }: any) => {
       </div>
 
       <div className="space-y-2">
-        {items.map((item: any, index: number) => (
+        {items.map((item: Record<string, unknown>, index: number) => (
           <div key={index} className="flex items-center gap-3 group/item">
             {/* Checkbox stylisée */}
             <div className="relative">
@@ -1601,7 +1588,7 @@ const ChecklistBlock = ({ block, onChange, onDelete }: any) => {
 };
 
 // Mise à jour du TableBlock avec sauvegarde automatique
-const TableBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const TableBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   const [data, setData] = useState(block.content || { 
     headers: ['Colonne 1', 'Colonne 2'], 
     rows: [['', ''], ['', '']] 
@@ -1874,7 +1861,7 @@ const TableBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
 };
 
 // Composant pour un séparateur
-const DividerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const DividerBlock = ({ onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   return (
     <div className="group relative">
       <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -1927,7 +1914,7 @@ const DividerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMove
 };
 
 // Corrigé: Nouveau composant pour le bloc d'espacement (correction du problème [object Object])
-const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: any) => {
+const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
   // Assurer que height soit initialisé comme un nombre
   const initialHeight = typeof block.content === 'object' && block.content !== null && typeof block.content.height === 'number' 
     ? block.content.height 
@@ -2048,7 +2035,6 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
 
 // Composant principal BlockEditor - Suppression du système global de toolbar
 export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
-  const [draggedBlock, setDraggedBlock] = useState<string | null>(null);
   
   // SUPPRESSION des états pour la toolbar globale qui causent des problèmes
   // Les sélections seront traitées uniquement dans RichTextArea
@@ -2250,7 +2236,7 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             onClick={() => addBlock('image', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
           >
-            <Image className="h-4 w-4" />
+            <Image className="h-4 w-4" alt={''}/>
             <div className="text-left">
               <div className="font-medium">Image</div>
               <div className="text-xs text-muted-foreground">Ajouter une image</div>

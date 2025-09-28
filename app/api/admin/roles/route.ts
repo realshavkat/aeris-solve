@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { connectToDatabase } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
@@ -98,73 +97,5 @@ export async function POST(request: NextRequest) {
       { error: "Erreur lors de la création du rôle" },
       { status: 500 }
     );
-  }
-}
-
-// Fonction pour s'assurer que les rôles par défaut existent SANS CRÉER DE DOUBLONS
-async function ensureDefaultRoles(db: any) {
-  // Supprimer d'abord tous les doublons potentiels
-  const rolesSlugs = ['visitor', 'member', 'admin'];
-  
-  for (const slug of rolesSlugs) {
-    const existingRoles = await db.collection("roles").find({ slug }).toArray();
-    
-    if (existingRoles.length > 1) {
-      // Garder le premier, supprimer les autres
-      const rolesToDelete = existingRoles.slice(1);
-      for (const role of rolesToDelete) {
-        await db.collection("roles").deleteOne({ _id: role._id });
-      }
-    }
-  }
-
-  const defaultRoles = [
-    {
-      name: "Visiteur",
-      slug: "visitor",
-      description: "Rôle par défaut pour les nouveaux utilisateurs en attente d'approbation",
-      color: "#6b7280",
-      permissions: ["view_profile"],
-      isDefault: false,
-      isSystem: true
-    },
-    {
-      name: "Membre",
-      slug: "member",
-      description: "Utilisateur approuvé avec accès complet aux fonctionnalités de base",
-      color: "#3b82f6",
-      permissions: [
-        "view_dashboard", "view_profile", "edit_profile",
-        "create_folder", "edit_own_folders", "delete_own_folders", "join_folders", "manage_folder_members",
-        "create_reports", "edit_own_reports", "delete_own_reports"
-      ],
-      isDefault: true,
-      isSystem: true
-    },
-    {
-      name: "Administrateur",
-      slug: "admin",
-      description: "Accès complet à toutes les fonctionnalités d'administration",
-      color: "#ef4444",
-      permissions: [
-        "view_dashboard", "view_profile", "edit_profile",
-        "create_folder", "edit_own_folders", "delete_own_folders", "join_folders", "manage_folder_members",
-        "create_reports", "edit_own_reports", "delete_own_reports", "view_all_reports",
-        "admin_panel", "manage_users", "manage_roles", "send_notifications", "view_analytics"
-      ],
-      isDefault: false,
-      isSystem: true
-    }
-  ];
-
-  for (const role of defaultRoles) {
-    const existing = await db.collection("roles").findOne({ slug: role.slug });
-    if (!existing) {
-      await db.collection("roles").insertOne({
-        ...role,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-    }
   }
 }

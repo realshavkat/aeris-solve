@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   Search, 
   Users, 
@@ -23,11 +22,9 @@ import {
   Trash2,
   UserPlus,
   AlertTriangle,
-  TrendingUp,
   Activity,
   Edit,
   Save,
-  Mail
 } from "lucide-react";
 import {
   Select,
@@ -67,7 +64,6 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
 interface User {
@@ -102,7 +98,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -121,7 +117,7 @@ export default function AdminUsersPage() {
   const [showPendingDetails, setShowPendingDetails] = useState(false);
   const [pendingUserDetails, setPendingUserDetails] = useState<User | null>(null);
   const [activeUserTab, setActiveUserTab] = useState("all");
-  const [customRoles, setCustomRoles] = useState<any[]>([]);
+  const [customRoles, setCustomRoles] = useState<Record<string, unknown>[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -874,7 +870,7 @@ export default function AdminUsersPage() {
                     {(pendingUserDetails.anonymousNickname || pendingUserDetails.discordUsername)[0]?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                Demande d'accès en attente
+                Demande d&apos;accès en attente
               </DialogTitle>
             </DialogHeader>
 

@@ -160,7 +160,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // AJOUT: Détecter les changements
-    const changes: Record<string, { old: any; new: any }> = {};
+    const changes: Record<string, { old: Record<string, unknown>; new: Record<string, unknown> }> = {};
     
     if (body.title !== undefined && body.title !== folder.title) {
       changes.title = { old: folder.title, new: body.title };
@@ -173,7 +173,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Préparer les données à mettre à jour
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       lastModified: new Date(),
     };
 
@@ -191,7 +191,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const updateOperation: any = { $set: updateData };
+    const updateOperation: Record<string, unknown> = { $set: updateData };
     if (updateData.$unset) {
       updateOperation.$unset = updateData.$unset;
       delete updateData.$unset;

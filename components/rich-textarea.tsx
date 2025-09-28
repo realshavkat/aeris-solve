@@ -43,7 +43,7 @@ export function RichTextArea({
   const handleBlur = () => {
     if (editorRef.current) {
       // Obtenir le HTML et le convertir en markdown
-      let html = editorRef.current.innerHTML;
+      const html = editorRef.current.innerHTML;
       // Convertir le HTML en markdown
       let markdown = html
         .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
@@ -250,9 +250,9 @@ export function RichTextArea({
         ref={editorRef}
         contentEditable
         dangerouslySetInnerHTML={{ __html: getFormattedHtml(value) }}
-        onInput={(e) => {
+        onInput={() => {
           // Capture le contenu après modification par l'utilisateur
-          const html = (e.target as HTMLDivElement).innerHTML;
+
           handleBlur(); // Convertit en markdown et appelle onChange
         }}
         onBlur={handleBlur}

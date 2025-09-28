@@ -111,7 +111,7 @@ export default function WaitingPage() {
         <CardHeader>
           <CardTitle>Demande soumise ✅</CardTitle>
           <CardDescription>
-            Votre demande d'accès a été envoyée avec succès.
+            Votre demande d&apos;accès a été envoyée avec succès.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

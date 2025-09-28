@@ -10,7 +10,6 @@ import {
   FileText, 
   Calendar, 
   Tag, 
-  Flag, 
   User, 
   Search,
   Eye,
@@ -82,7 +81,7 @@ export function ViewReportsDialog({ folder, open, onClose, onReportDeleted }: Vi
     if (open) {
       fetchReports();
     }
-  }, [open, folder._id]);
+  });
 
   const fetchReports = async () => {
     setLoading(true);
@@ -221,7 +220,7 @@ export function ViewReportsDialog({ folder, open, onClose, onReportDeleted }: Vi
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
-              Rapports de "{folder.title}"
+              Rapports de &quot;{folder.title}&quot;
               <Badge variant="outline" className="text-orange-600 border-orange-200">
                 <Settings className="w-3 h-3 mr-1" />
                 Admin
@@ -348,10 +347,10 @@ export function ViewReportsDialog({ folder, open, onClose, onReportDeleted }: Vi
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce rapport ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le rapport "{reportToDelete?.title}" ?
+              Êtes-vous sûr de vouloir supprimer le rapport &quot;{reportToDelete?.title}&quot; ?
               Cette action est irréversible.
               <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-950 rounded border-l-4 border-orange-500 text-sm">
-                <strong>Action d'administrateur :</strong> Vous supprimez un rapport qui ne vous appartient pas.
+                <strong>Action d&apos;administrateur :</strong> Vous supprimez un rapport qui ne vous appartient pas.
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

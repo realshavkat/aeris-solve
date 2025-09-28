@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { connectToDatabase } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {

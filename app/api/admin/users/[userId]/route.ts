@@ -21,7 +21,7 @@ export async function PATCH(
 
     const { db } = await connectToDatabase();
 
-    let updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date()
     };
 
@@ -72,7 +72,7 @@ export async function PATCH(
     }
 
     // Construire la requête de mise à jour
-    const updateOperation: any = { $set: updateData };
+    const updateOperation: Record<string, unknown> = { $set: updateData };
     if (updateData.$unset) {
       updateOperation.$unset = updateData.$unset;
       delete updateData.$unset;

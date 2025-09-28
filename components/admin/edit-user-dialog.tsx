@@ -138,7 +138,7 @@ export function EditUserDialog({ user, open, onClose, onSaved }: EditUserDialogP
             <h3 className="text-sm font-medium text-muted-foreground">Informations Discord</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <Label className="text-xs">Nom d'utilisateur</Label>
+                <Label className="text-xs">Nom d&apos;utilisateur</Label>
                 <p className="font-mono">{user.discordUsername}</p>
               </div>
               <div>

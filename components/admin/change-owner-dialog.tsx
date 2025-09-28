@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Crown, UserX } from "lucide-react";
@@ -122,7 +121,7 @@ export function ChangeOwnerDialog({ folder, open, onClose, onOwnerChanged }: Cha
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="w-5 h-5 text-yellow-600" />
-            Changer le propriétaire de "{folder.title}"
+            Changer le propriétaire de &quot;{folder.title}&quot;
           </DialogTitle>
         </DialogHeader>
 
@@ -208,7 +207,7 @@ export function ChangeOwnerDialog({ folder, open, onClose, onOwnerChanged }: Cha
                     Attention : Changement de propriétaire
                   </p>
                   <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                    Cette action transférera la propriété complète du dossier à l'utilisateur sélectionné. 
+                    Cette action transférera la propriété complète du dossier à l&apos;utilisateur sélectionné. 
                     Vous perdrez vos droits de propriétaire sur ce dossier.
                   </p>
                 </div>

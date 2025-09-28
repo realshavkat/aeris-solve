@@ -83,7 +83,7 @@ export function FoldersView() {
   // Recharger les dossiers quand le mode admin change
   useEffect(() => {
     fetchFolders();
-  }, [adminMode]);
+  });
 
   const handleFolderCreated = (newFolder: Folder) => {
     setFolders(prev => [newFolder, ...prev]);

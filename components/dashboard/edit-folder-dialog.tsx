@@ -19,7 +19,7 @@ interface EditFolderDialogProps {
   };
   open: boolean;
   onClose: () => void;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export function EditFolderDialog({ folder, open, onClose, onSave }: EditFolderDialogProps) {
@@ -51,7 +51,7 @@ export function EditFolderDialog({ folder, open, onClose, onSave }: EditFolderDi
         toast.success("Image téléchargée avec succès");
       }
     } catch (error) {
-      toast.error("Erreur lors du téléchargement de l'image");
+      toast.error("Erreur lors du téléchargement de l'image", error);
     } finally {
       setIsUploading(false);
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ImagePlus, Loader2, ImageIcon } from "lucide-react";
-import { uploadToDiscord } from "@/lib/discord-upload";
+import { ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -20,39 +19,16 @@ import { useSession } from "next-auth/react";
 interface CreateFolderDialogProps {
   open: boolean;
   onClose: () => void;
-  onFolderCreated?: (folder: any) => void;
+  onFolderCreated?: (folder: Record<string, unknown>) => void;
 }
 
 export function CreateFolderDialog({ open, onClose, onFolderCreated }: CreateFolderDialogProps) {
   const { data: session } = useSession();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [coverImage, setCoverImage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 8 * 1024 * 1024) {
-      alert("L'image est trop volumineuse (max 8MB)");
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const imageUrl = await uploadToDiscord(file);
-      setCoverImage(imageUrl);
-    } catch (error) {
-      console.error("Erreur upload:", error);
-      alert("Erreur lors de l'upload de l'image");
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handleImageUpload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -76,7 +52,7 @@ export function CreateFolderDialog({ open, onClose, onFolderCreated }: CreateFol
         toast.success("Image téléchargée avec succès");
       }
     } catch (error) {
-      toast.error("Erreur lors du téléchargement de l'image");
+      toast.error("Erreur lors du téléchargement de l'image", error);
     } finally {
       setIsUploading(false);
     }

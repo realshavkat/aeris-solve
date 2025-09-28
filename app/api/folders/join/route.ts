@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier si l'utilisateur est déjà membre
-    const isAlreadyMember = folder.members?.some((member: any) => member.id === session.user.id);
+    const isAlreadyMember = folder.members?.some((member: Record<string, unknown>) => member.id === session.user.id);
     
     if (isAlreadyMember) {
       return NextResponse.json({ 

@@ -52,7 +52,7 @@ export function ManageMembersDialog({ folder, open, onClose, onMembersUpdated }:
     if (open && folder) {
       fetchMembers();
     }
-  }, [open, folder]);
+  });
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -111,7 +111,7 @@ export function ManageMembersDialog({ folder, open, onClose, onMembersUpdated }:
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Membres du dossier "{folder.title}"
+              Membres du dossier &quot;{folder.title}&quot;
             </DialogTitle>
           </DialogHeader>
 
@@ -198,7 +198,7 @@ export function ManageMembersDialog({ folder, open, onClose, onMembersUpdated }:
             <AlertDialogTitle>Retirer ce membre ?</AlertDialogTitle>
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir retirer <strong>{memberToRemove?.name}</strong> du dossier ?
-              Cette personne perdra l'accès à tous les rapports de ce dossier.
+              Cette personne perdra l&apos;accès à tous les rapports de ce dossier.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

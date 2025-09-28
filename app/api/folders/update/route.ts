@@ -25,6 +25,6 @@ export async function PATCH(request: NextRequest) {
     const updatedFolder = await db.collection("folders").findOne({ _id: objectId });
     return NextResponse.json(updatedFolder);
   } catch (error) {
-    return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
+    return NextResponse.json({ error: `Erreur interne: ${error}` }, { status: 500 });
   }
 }

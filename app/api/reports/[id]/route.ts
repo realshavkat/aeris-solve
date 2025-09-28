@@ -86,7 +86,7 @@ export async function PATCH(
 
     // Vérifier que l'utilisateur est soit propriétaire du dossier, soit membre du dossier
     const hasAccess = folder.ownerId === session.user.id || 
-                      folder.members?.some((member: any) => member.id === session.user.id);
+                      folder.members?.some((member: Record<string, unknown>) => member.id === session.user.id);
 
     if (!hasAccess) {
       return NextResponse.json({ error: "Non autorisé à modifier ce rapport" }, { status: 403 });
@@ -105,7 +105,7 @@ export async function PATCH(
     }
 
     // Détecter les changements
-    const changes: Record<string, { old: any; new: any }> = {};
+    const changes: Record<string, { old: Record<string, unknown>; new: Record<string, unknown> }> = {};
     
     if (title !== undefined && title !== report.title) {
       changes.title = { old: report.title, new: title };
@@ -127,7 +127,7 @@ export async function PATCH(
     }
 
     // Préparer les données de mise à jour
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
       // AJOUT: Mettre à jour les infos de l'éditeur si ce n'est pas l'auteur original
       lastEditedBy: {
@@ -239,7 +239,7 @@ export async function DELETE(
 
     // Vérifier que l'utilisateur est soit propriétaire du dossier, soit membre du dossier
     const hasAccess = folder.ownerId === session.user.id || 
-                      folder.members?.some((member: any) => member.id === session.user.id);
+                      folder.members?.some((member: Record<string, unknown>) => member.id === session.user.id);
 
     if (!hasAccess) {
       return NextResponse.json({ error: "Non autorisé à supprimer ce rapport" }, { status: 403 });

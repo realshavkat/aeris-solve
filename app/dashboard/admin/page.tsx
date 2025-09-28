@@ -8,7 +8,6 @@ import {
   Users, 
   FolderIcon, 
   FileText, 
-  Calendar,
   TrendingUp,
   Clock,
   CheckCircle2,
@@ -17,7 +16,6 @@ import {
   Activity,
   BarChart3,
   UserCheck,
-  UserX,
   UserPlus
 } from "lucide-react";
 import Link from "next/link";
@@ -82,7 +80,7 @@ export default function AdminDashboard() {
                 Administration Aeris
               </h1>
               <p className="text-lg text-muted-foreground mt-2">
-                Gérez et supervisez l'ensemble de la plateforme
+                Gérez et supervisez l&apos;ensemble de la plateforme
               </p>
             </div>
           </div>
@@ -198,7 +196,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">
-                  {stats?.pendingUsers || 0} utilisateur{(stats?.pendingUsers || 0) !== 1 ? 's' : ''} en attente d'approbation
+                  {stats?.pendingUsers || 0} utilisateur{(stats?.pendingUsers || 0) !== 1 ? 's' : ''} en attente d&apos;approbation
                 </p>
                 <Link href="/dashboard/admin/users">
                   <Button className="w-full cursor-pointer">

@@ -60,7 +60,7 @@ export function FolderMembersDialog({ folder, open, onClose, onMemberRemoved }: 
     if (open) {
       fetchMembers();
     }
-  }, [open, folder._id]);
+  });
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -116,7 +116,7 @@ export function FolderMembersDialog({ folder, open, onClose, onMemberRemoved }: 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Membres du dossier "{folder.title}"
+              Membres du dossier &quot;{folder.title}&quot;
               {isAdmin && !isOwner && (
                 <Badge variant="outline" className="text-orange-600 border-orange-200">
                   <Settings className="w-3 h-3 mr-1" />
@@ -221,11 +221,11 @@ export function FolderMembersDialog({ folder, open, onClose, onMemberRemoved }: 
             <AlertDialogTitle>Retirer ce membre ?</AlertDialogTitle>
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir retirer <strong>{memberToRemove?.name}</strong> du dossier ?
-              Cette personne perdra l'accès à tous les rapports de ce dossier et devra utiliser 
-              une nouvelle clé d'accès pour y revenir.
+              Cette personne perdra l&apos;accès à tous les rapports de ce dossier et devra utiliser 
+              une nouvelle clé d&apos;accès pour y revenir.
               {isAdmin && !isOwner && (
                 <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-950 rounded border-l-4 border-orange-500 text-sm">
-                  <strong>Action d'administrateur :</strong> Vous retirez un membre d'un dossier dont vous n'êtes pas propriétaire.
+                  <strong>Action d&apos;administrateur :</strong> Vous retirez un membre d&apos;un dossier dont vous n&apos;êtes pas propriétaire.
                 </div>
               )}
             </AlertDialogDescription>

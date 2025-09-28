@@ -1,41 +1,3 @@
-interface DiscordEmbedField {
-  name: string;
-  value: string;
-  inline?: boolean;
-}
-
-interface DiscordEmbed {
-  title: string;
-  description?: string;
-  color: number;
-  fields?: DiscordEmbedField[];
-  timestamp: string;
-  footer?: {
-    text: string;
-    icon_url?: string;
-  };
-  author?: {
-    name: string;
-    icon_url?: string;
-  };
-}
-
-// Webhooks pour chaque catégorie
-const WEBHOOKS = {
-  FOLDERS: 'https://canary.discord.com/api/webhooks/1421754625245184041/4_arqY6HOaybYbX2sO2Yvh9-f7C8ABHNP7eqfc5Rv1Cd_ms9TeGX92HSiKysDAWfjURy',
-  REPORTS: 'https://canary.discord.com/api/webhooks/1421754767205466195/HyTsMLxze2hTN7W_9Z1sB5iIZc_BEKEg8BnM9SwEximHJRW4sBB47j-GGLgPXoDlzGwr',
-  MISSIONS: 'https://canary.discord.com/api/webhooks/1421754776495980654/OpoeOPwuJGHamnQOQVCtoc-lhk9qamPX-kcVSt-K1X5D_k62fr7vanW--3fnZBjUaEGL'
-} as const;
-
-// Couleurs des embeds
-const COLORS = {
-  CREATE: 0x00ff00,    // Vert
-  UPDATE: 0xffaa00,    // Orange
-  DELETE: 0xff0000,    // Rouge
-  COMPLETE: 0x0099ff,  // Bleu
-  CANCEL: 0x888888     // Gris
-} as const;
-
 class DiscordLogger {
   private webhooks: Record<string, string>;
 
@@ -51,7 +13,7 @@ class DiscordLogger {
     };
   }
 
-  private async sendLog(embed: any, webhookType: string = 'default') {
+  private async sendLog(embed: Record<string, unknown>, webhookType: string = 'default') {
     const webhookUrl = this.webhooks[webhookType];
     
     if (!webhookUrl) {
@@ -101,7 +63,7 @@ class DiscordLogger {
   async logFolderUpdated(
     user: { name: string; discordId: string },
     folder: { title: string; _id: string },
-    changes: Record<string, { old: any; new: any }>
+    changes: Record<string, { old: Record<string, unknown>; new: Record<string, unknown> }>
   ) {
     const changesList = Object.entries(changes).map(([key, change]) => {
       return `**${key}**: ${change.old} → ${change.new}`;
@@ -166,7 +128,7 @@ class DiscordLogger {
   async logReportUpdated(
     user: { name: string; discordId: string },
     report: { title: string; _id: string },
-    changes: Record<string, { old: any; new: any }>,
+    changes: Record<string, { old: Record<string, unknown>; new: Record<string, unknown> }>,
     folder: { title: string }
   ) {
     const changesList = Object.entries(changes).map(([key, change]) => {
@@ -235,7 +197,7 @@ class DiscordLogger {
   // Logs pour les missions (créées par les admins)
   async logMissionCreatedByAdmin(
     admin: { name: string; discordId: string },
-    mission: { title: string; description: string; _id: string; priority: string; assignedUsers: any[] }
+    mission: { title: string; description: string; _id: string; priority: string; assignedUsers: Record<string, unknown>[] }
   ) {
     const embed = {
       title: "🎯 Mission créée par un administrateur",

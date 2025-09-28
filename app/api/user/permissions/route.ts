@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 // Cache côté serveur OPTIMISÉ
-const serverCache = new Map<string, { permissions: any; timestamp: number }>();
+const serverCache = new Map<string, { permissions: Record<string, unknown>; timestamp: number }>();
 const SERVER_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 1000; // Limite de la taille du cache
 

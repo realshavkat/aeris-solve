@@ -95,7 +95,7 @@ export default function ProfilePage() {
     if (session?.user?.id) {
       fetchUserData();
     }
-  }, [session, router]);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -435,7 +435,7 @@ export default function ProfilePage() {
           <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 mb-6">
             <CardContent className="p-4">
               <p className="text-red-700 dark:text-red-400">
-                Vous n'avez pas la permission de modifier votre profil.
+                Vous n&apos;avez pas la permission de modifier votre profil.
               </p>
             </CardContent>
           </Card>

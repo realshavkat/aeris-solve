@@ -24,7 +24,7 @@ export async function PATCH(
     const { db } = await connectToDatabase();
 
     // Construire l'objet de mise à jour
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date()
     };
 
@@ -56,7 +56,7 @@ export async function PATCH(
 
       if (currentMission) {
         // Identifier les nouveaux membres (qui n'étaient pas assignés avant)
-        const currentUserIds = currentMission.assignedUsers.map((user: any) => user.id);
+        const currentUserIds = currentMission.assignedUsers.map((user: Record<string, unknown>) => user.id);
         const newUserIds = assignedUserIds.filter((id: string) => !currentUserIds.includes(id));
         
         // Créer des notifications pour les nouveaux membres seulement

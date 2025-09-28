@@ -674,7 +674,7 @@ export default function AdminMissionsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer la mission ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer la mission "{missionToDelete?.title}" ?
+              Êtes-vous sûr de vouloir supprimer la mission &quot;{missionToDelete?.title}&quot; ?
               Cette action est irréversible et supprimera définitivement la mission.
               {missionToDelete?.assignedUsers?.length > 0 && (
                 <span className="block mt-2 font-medium text-amber-600 dark:text-amber-400">
@@ -759,7 +759,7 @@ function CreateMissionDialog({
   isSubmitting,
   isEditing = false,
   editingMission = null
-}: any) {
+}: Record<string, unknown>) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
@@ -899,7 +899,7 @@ function CreateMissionDialog({
                     </div>
 
                     {/* Indicateur si la personne était déjà assignée */}
-                    {isEditing && editingMission?.assignedUsers.some((assignedUser: any) => assignedUser.id === user._id) && (
+                    {isEditing && editingMission?.assignedUsers.some((assignedUser: Record<string, unknown>) => assignedUser.id === user._id) && (
                       <Badge variant="secondary" className="text-xs">
                         Déjà assigné
                       </Badge>

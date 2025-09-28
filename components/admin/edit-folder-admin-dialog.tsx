@@ -25,7 +25,7 @@ interface EditFolderAdminDialogProps {
   };
   open: boolean;
   onClose: () => void;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export function EditFolderAdminDialog({ folder, open, onClose, onSave }: EditFolderAdminDialogProps) {
@@ -57,7 +57,7 @@ export function EditFolderAdminDialog({ folder, open, onClose, onSave }: EditFol
         toast.success("Image téléchargée avec succès");
       }
     } catch (error) {
-      toast.error("Erreur lors du téléchargement de l'image");
+      toast.error("Erreur lors du téléchargement de l'image", error);
     } finally {
       setIsUploading(false);
     }

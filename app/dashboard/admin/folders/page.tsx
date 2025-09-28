@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Search, 
   FolderIcon, 
-  FileText, 
   Users, 
   Calendar,
   MoreHorizontal,
-  Eye,
   Trash2,
   Edit,
   Save,
@@ -24,10 +22,7 @@ import {
   Crown,
   Copy,
   UserMinus,
-  ExternalLink,
-  Clock,
   User,
-  Tag
 } from "lucide-react";
 import {
   Select,
@@ -53,7 +48,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import Link from "next/link";
+import Image from "next/image";
 
 interface Folder {
   _id: string;
@@ -103,25 +98,14 @@ interface User {
   discordId: string;
 }
 
-const importanceOptions = [
-  { value: 'low', label: 'Faible', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800', icon: '🟢' },
-  { value: 'medium', label: 'Moyen', color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800', icon: '🟡' },
-  { value: 'high', label: 'Élevé', color: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800', icon: '🟠' },
-  { value: 'critical', label: 'Critique', color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800', icon: '🔴' }
-];
-
 export default function AdminFoldersPage() {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [reports, setReports] = useState<Report[]>([]);
+  const [setReports] = useState<Report[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("recent");
-  const [activeTab, setActiveTab] = useState("folders");
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [showFolderDialog, setShowFolderDialog] = useState(false);
-  const [showReportDialog, setShowReportDialog] = useState(false);
   const [showEditFolder, setShowEditFolder] = useState(false);
   const [editFolderData, setEditFolderData] = useState({ 
     title: '', 
@@ -132,19 +116,15 @@ export default function AdminFoldersPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [showReportsDialog, setShowReportsDialog] = useState(false);
   const [showAccessKeyDialog, setShowAccessKeyDialog] = useState(false);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
   const [showOwnerDialog, setShowOwnerDialog] = useState(false);
-  const [folderReports, setFolderReports] = useState<Report[]>([]);
-  const [loadingReports, setLoadingReports] = useState(false);
-  const [selectedReportForView, setSelectedReportForView] = useState<Report | null>(null);
 
   useEffect(() => {
     fetchFolders();
     fetchReports();
     fetchUsers();
-  }, []);
+  });
 
   const fetchFolders = async () => {
     try {
@@ -188,42 +168,13 @@ export default function AdminFoldersPage() {
     }
   };
 
-  const fetchFolderReports = async (folderId: string) => {
-    setLoadingReports(true);
-    try {
-      const response = await fetch(`/api/admin/folders/${folderId}/reports`);
-      if (response.ok) {
-        const data = await response.json();
-        setFolderReports(data);
-      } else {
-        throw new Error('Erreur chargement rapports');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast.error('Erreur lors du chargement des rapports');
-    } finally {
-      setLoadingReports(false);
-    }
-  };
-
-  const handleEditFolder = (folder: Folder) => {
-    setSelectedFolder(folder);
-    setEditFolderData({
-      title: folder.title,
-      description: folder.description,
-      coverImage: folder.coverImage || '',
-      ownerId: folder.ownerId,
-      accessKey: folder.accessKey || ''
-    });
-    setShowEditFolder(true);
-  };
 
   const handleSaveFolderEdit = async (section: 'info' | 'owner' | 'accessKey' = 'info') => {
     if (!selectedFolder) return;
 
     setIsSubmitting(true);
     try {
-      let dataToSend: any = {};
+      let dataToSend: Record<string, unknown> = {};
       
       // Envoyer uniquement les données pertinentes selon la section
       if (section === 'info') {
@@ -296,7 +247,7 @@ export default function AdminFoldersPage() {
         toast.success("Image téléchargée avec succès");
       }
     } catch (error) {
-      toast.error("Erreur lors du téléchargement de l'image");
+      toast.error("Erreur lors du téléchargement de l'image", error);
     } finally {
       setIsUploading(false);
     }
@@ -317,24 +268,6 @@ export default function AdminFoldersPage() {
     } catch (error) {
       console.error('Erreur:', error);
       toast.error('Erreur lors de la suppression du dossier');
-    }
-  };
-
-  const handleDeleteReport = async (reportId: string) => {
-    try {
-      const response = await fetch(`/api/admin/reports/${reportId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        await fetchReports();
-        toast.success('Rapport supprimé avec succès');
-      } else {
-        throw new Error('Erreur lors de la suppression');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast.error('Erreur lors de la suppression du rapport');
     }
   };
 
@@ -365,28 +298,6 @@ export default function AdminFoldersPage() {
           return b.membersCount - a.membersCount;
         case 'title':
           return a.title.localeCompare(b.title);
-        default:
-          return 0;
-      }
-    });
-  };
-
-  const getFilteredReports = () => {
-    return reports.filter(report =>
-      report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.author?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.folder?.title?.toLowerCase().includes(searchQuery.toLowerCase())
-    ).sort((a, b) => {
-      switch (sortBy) {
-        case 'recent':
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        case 'importance':
-          const importanceOrder = { low: 0, medium: 1, high: 2, critical: 3 };
-          return importanceOrder[b.importance as keyof typeof importanceOrder] - 
-                 importanceOrder[a.importance as keyof typeof importanceOrder];
-        case 'title':
-          return a.title?.localeCompare(b.title || '') || 0;
         default:
           return 0;
       }
@@ -452,43 +363,6 @@ export default function AdminFoldersPage() {
     }
   };
 
-  // Fonction pour le rendu du contenu markdown
-  const renderMarkdownContent = (content: string) => {
-    return content
-      // Conversion markdown complète
-      .replace(/^###### (.+)$/gm, '<h6 class="text-sm font-semibold mt-3 mb-2">$1</h6>')
-      .replace(/^##### (.+)$/gm, '<h5 class="text-base font-semibold mt-3 mb-2">$1</h5>')
-      .replace(/^#### (.+)$/gm, '<h4 class="text-lg font-semibold mt-4 mb-2">$1</h4>')
-      .replace(/^### (.+)$/gm, '<h3 class="text-xl font-semibold mt-4 mb-3">$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2 class="text-2xl font-bold mt-5 mb-3">$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1 class="text-3xl font-bold mt-6 mb-4 text-primary">$1</h1>')
-      
-      // Séparateurs horizontaux
-      .replace(/^---$/gm, '<hr class="border-t-2 border-border my-6" />')
-      .replace(/^\*\*\*$/gm, '<hr class="border-t-2 border-border my-6" />')
-      .replace(/^___$/gm, '<hr class="border-t-2 border-border my-6" />')
-      
-      // Formatage du texte
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em class="italic">$1</em>')
-      .replace(/~~(.*?)~~/g, '<del class="line-through opacity-70">$1</del>')
-      .replace(/`(.*?)`/g, '<code class="bg-muted px-2 py-1 rounded text-sm font-mono border border-border">$1</code>')
-      
-      // Liens et images
-      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img alt="$1" src="$2" class="rounded-lg my-6 max-h-96 mx-auto shadow-lg border border-border hover:shadow-xl transition-shadow duration-300" />')
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 underline underline-offset-2 font-medium transition-colors duration-200">$1</a>')
-      
-      // Citations
-      .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-primary bg-muted/30 pl-4 pr-4 py-3 my-4 rounded-r-lg relative shadow-sm"><p class="italic text-sm leading-relaxed text-foreground/90">$1</p></blockquote>')
-      
-      // Listes
-      .replace(/^- (.+)$/gm, '<li class="flex items-start gap-3 my-2"><div class="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0"></div><span class="text-sm leading-relaxed">$1</span></li>')
-      .replace(/^(\d+)\. (.+)$/gm, '<li class="flex items-start gap-3 my-2"><span class="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold bg-primary/15 text-primary rounded-full border border-primary/30 flex-shrink-0">$1</span><span class="text-sm leading-relaxed pt-0.5">$2</span></li>')
-      
-      // Remplacer les sauts de ligne
-      .replace(/\n/g, '<br>');
-  };
-
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center min-h-screen">
@@ -512,7 +386,7 @@ export default function AdminFoldersPage() {
                 Gestion des dossiers
               </h1>
               <p className="text-lg text-muted-foreground mt-2">
-                Administrez l'ensemble des dossiers et rapports de la plateforme
+                Administrez l&apos;ensemble des dossiers et rapports de la plateforme
               </p>
             </div>
           </div>
@@ -594,7 +468,7 @@ export default function AdminFoldersPage() {
                   {/* Image de couverture moderne */}
                   <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-950 dark:to-purple-950 flex items-center justify-center flex-shrink-0 shadow-md">
                     {folder.coverImage ? (
-                      <img 
+                      <Image 
                         src={folder.coverImage} 
                         alt={folder.title}
                         className="w-full h-full object-cover"
@@ -707,7 +581,7 @@ export default function AdminFoldersPage() {
                               }}
                             >
                               <Key className="w-4 h-4 mr-2" />
-                              Clé d'accès
+                              Clé d&apos;accès
                             </DropdownMenuItem>
                             
                             <DropdownMenuSeparator />
@@ -800,7 +674,7 @@ export default function AdminFoldersPage() {
                   />
                   {editFolderData.coverImage && (
                     <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-md border">
-                      <img
+                      <Image
                         src={editFolderData.coverImage}
                         alt="Aperçu"
                         className="object-cover w-full h-full"
@@ -878,7 +752,7 @@ export default function AdminFoldersPage() {
 
               <div className="mt-4 bg-amber-50 dark:bg-amber-950 p-3 rounded-md border border-amber-200 dark:border-amber-800">
                 <p className="text-sm text-amber-800 dark:text-amber-300">
-                  Le changement de propriétaire donnera à l'utilisateur sélectionné un contrôle total sur ce dossier.
+                  Le changement de propriétaire donnera à l&apos;utilisateur sélectionné un contrôle total sur ce dossier.
                 </p>
               </div>
             </div>
@@ -908,11 +782,11 @@ export default function AdminFoldersPage() {
         <Dialog open={showAccessKeyDialog} onOpenChange={setShowAccessKeyDialog}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Gérer la clé d'accès</DialogTitle>
+              <DialogTitle>Gérer la clé d&apos;accès</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              <Label>Clé d'accès (optionnel)</Label>
+              <Label>Clé d&apos;accès (optionnel)</Label>
               <div className="flex gap-2">
                 <Input
                   value={editFolderData.accessKey}
