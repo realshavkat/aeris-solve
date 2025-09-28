@@ -95,7 +95,7 @@ export default function WaitingPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-center gap-2 text-sm text-green-600 dark:text-green-400">
-                <span>Bienvenue dans Aerys</span>
+                <span>Bienvenue dans Aeris</span>
                 <ArrowRight className="w-4 h-4 animate-pulse" />
               </div>
             </CardContent>

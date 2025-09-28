@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     
     const embed = {
       title: "Nouvelle demande d'accès",
-      description: "Une nouvelle demande a été soumise pour le serveur Aerys.",
+      description: "Une nouvelle demande a été soumise pour le serveur Aeris.",
       color: 3447003,
       fields: [
         {

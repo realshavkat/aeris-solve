@@ -23,13 +23,8 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    // Récupérer l'ancien nom pour comparaison
-    const oldUser = await db.collection("users").findOne({ _id: new ObjectId(session.user.id) });
-    const oldName = oldUser?.anonymousNickname || oldUser?.discordUsername;
-    const newName = anonymousNickname.trim();
-
     // Mettre à jour l'utilisateur
-    const result = await db.collection("users").updateOne(
+    const result = await db.collection("users").updateOne();
     const userUpdateResult = await db.collection("users").findOneAndUpdate(
       { _id: new ObjectId(session.user.id) },
       { 
@@ -38,105 +33,56 @@ export async function POST(request: NextRequest) {
           anonymousNickname: anonymousNickname.trim(),
           updatedAt: new Date()
         }
-      }
       },
       { returnDocument: 'before' }
     );
 
     if (result.matchedCount === 0) {
-    const oldUser = userUpdateResult.value;
-    const oldName = oldUser?.anonymousNickname || oldUser?.nickname || oldUser?.discordUsername;
-    const newName = anonymousNickname.trim();
+      const oldUser = userUpdateResult.value;
+      const oldName = oldUser?.anonymousNickname || oldUser?.nickname || oldUser?.discordUsername;
+      const newName = anonymousNickname.trim();
 
-    if (!oldUser) {
-      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+      if (!oldUser) {
+        return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+      }
+
+      // Si le nom a changé, propager les modifications
+      let propagated = false;
+      if (oldName !== newName && oldUser) {
+        // Mettre à jour les dossiers où l'utilisateur est créateur
+        // (en supposant que creator.discordId est l'identifiant fiable)
+        await db.collection("folders").updateMany(
+          { "creator.discordId": oldUser.discordId },
+          { $set: { "creator.name": newName } }
+        );
+
+        // Mettre à jour les rapports où l'utilisateur est auteur
+        // (en supposant que author.discordId est l'identifiant fiable)
+        await db.collection("reports").updateMany(
+          { "author.discordId": oldUser.discordId },
+          { $set: { "author.name": newName } }
+        );
+
+        // Mettre à jour les membres des dossiers
+        await db.collection("folders").updateMany(
+          { "members.id": session.user.id },
+          { $set: { "members.$.name": newName } },
+          { "members.id": session.user.id.toString() },
+          { $set: { "members.$[elem].name": newName } },
+          { arrayFilters: [{ "elem.id": session.user.id.toString() }] }
+        );
+
+        propagated = true;
+      }
+
+      return NextResponse.json({ 
+        message: propagated ? "Profil mis à jour et propagé dans vos contenus" : "Profil mis à jour avec succès",
+        propagated
+      });
     }
-
-    // Si le nom a changé, propager les modifications
-    let propagated = false;
-    if (oldName !== newName && oldUser) {
-      // Mettre à jour les dossiers où l'utilisateur est créateur
-      // (en supposant que creator.discordId est l'identifiant fiable)
-      await db.collection("folders").updateMany(
-        { "creator.discordId": oldUser.discordId },
-        { $set: { "creator.name": newName } }
-      );
-
-      // Mettre à jour les rapports où l'utilisateur est auteur
-      // (en supposant que author.discordId est l'identifiant fiable)
-      await db.collection("reports").updateMany(
-        { "author.discordId": oldUser.discordId },
-        { $set: { "author.name": newName } }
-      );
-
-      // Mettre à jour les membres des dossiers
-      await db.collection("folders").updateMany(
-        { "members.id": session.user.id },
-        { $set: { "members.$.name": newName } }
-        { "members.id": session.user.id.toString() },
-        { $set: { "members.$[elem].name": newName } },
-        { arrayFilters: [{ "elem.id": session.user.id.toString() }] }
-      );
-
-      propagated = true;
-    }
-
-    return NextResponse.json({ 
-      message: propagated ? "Profil mis à jour et propagé dans vos contenus" : "Profil mis à jour avec succès",
-      propagated
-    });
 
   } catch (error) {
     console.error("Erreur mise à jour profil:", error);
-    return NextResponse.json(
-      { error: "Erreur lors de la mise à jour du profil" },
-      { status: 500 }
-    );
-  }
-}
-            lastModified: new Date()
-          }
-        }
-      );
-
-      // Mettre à jour le nom de l'auteur dans tous les rapports créés par cet utilisateur
-      const reportUpdateResult = await db.collection("reports").updateMany(
-        { authorId: session.user.id },
-        {
-          $set: {
-            "author.name": newAnonymousNickname,
-            lastModified: new Date()
-          }
-        }
-      );
-
-      // Mettre à jour le nom dans les brouillons
-      const draftUpdateResult = await db.collection("drafts").updateMany(
-        { authorId: session.user.id },
-        {
-          $set: {
-            authorName: newAnonymousNickname,
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      console.log(`Mise à jour terminée:
-        - ${folderUpdateResult.modifiedCount} dossiers mis à jour
-        - ${memberUpdateResult.modifiedCount} appartenances à des dossiers mises à jour  
-        - ${reportUpdateResult.modifiedCount} rapports mis à jour
-        - ${draftUpdateResult.modifiedCount} brouillons mis à jour`);
-    }
-
-    return NextResponse.json({ 
-      success: true,
-      message: oldAnonymousNickname !== newAnonymousNickname 
-        ? "Profil mis à jour et nom propagé dans tous vos contenus"
-        : "Profil mis à jour avec succès"
-    });
-
-  } catch (error) {
-    console.error("Error updating profile:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du profil" },
       { status: 500 }

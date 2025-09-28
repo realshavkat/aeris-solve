@@ -133,7 +133,7 @@ export async function PATCH(
                             inline: true
                           }],
                           footer: {
-                            text: "Consultez vos missions sur Aerys"
+                            text: "Consultez vos missions sur Aeris"
                           },
                           timestamp: new Date().toISOString()
                         }]

@@ -6,7 +6,7 @@ module.exports = {
     "./components/**/*.{js,ts,jsx,tsx}",
     "./pages/**/*.{js,ts,jsx,tsx}",
     "./public/**/*.{js,ts,jsx,tsx}",
-    "./aerys/**/*.{js,ts,jsx,tsx}",
+    "./aeris/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {

@@ -190,7 +190,7 @@ export default function HomePage() {
       ) : (
         <Card className="w-[450px] text-center">
           <CardHeader>
-            <CardTitle>Connexion à Aerys</CardTitle>
+            <CardTitle>Connexion à Aeris</CardTitle>
             <CardDescription>
               Connectez-vous pour accéder à la plateforme.
             </CardDescription>

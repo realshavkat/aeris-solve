@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
                     inline: true
                   }],
                   footer: {
-                    text: "Connectez-vous sur Aerys pour voir toutes vos notifications"
+                    text: "Connectez-vous sur Aeris pour voir toutes vos notifications"
                   },
                   timestamp: new Date().toISOString()
                 }]

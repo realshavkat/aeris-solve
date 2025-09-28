@@ -37,7 +37,7 @@ if (process.env.NODE_ENV === 'development') {
 
 export async function connectToDatabase() {
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || 'aerys');
+  const db = client.db(process.env.MONGODB_DB || 'aeris');
   return db;
 }
 

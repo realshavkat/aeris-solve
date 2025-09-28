@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
                       inline: true
                     }],
                     footer: {
-                      text: "Consultez vos missions sur Aerys"
+                      text: "Consultez vos missions sur Aeris"
                     },
                     timestamp: new Date().toISOString()
                   }]

@@ -8,8 +8,8 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Aerys",
-  description: "Aerys - Par Shavkat et Saiko",
+  title: "Aeris",
+  description: "Aeris - Par Shavkat et Saiko",
 };
 
 export default function RootLayout({

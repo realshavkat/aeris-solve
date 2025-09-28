@@ -79,7 +79,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                Administration Aerys
+                Administration Aeris
               </h1>
               <p className="text-lg text-muted-foreground mt-2">
                 Gérez et supervisez l'ensemble de la plateforme

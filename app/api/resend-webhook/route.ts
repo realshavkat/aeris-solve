@@ -48,7 +48,7 @@ export async function POST() {
         ],
         timestamp: new Date().toISOString(),
         footer: {
-            text: "Système de Demande Aerys"
+            text: "Système de Demande Aeris"
         }
     };
     
