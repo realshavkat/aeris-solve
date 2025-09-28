@@ -37,7 +37,7 @@ export async function POST(
     }
 
     // Vérifier que l'utilisateur n'est pas déjà membre
-    const isAlreadyMember = folder.members?.some((member: any) => member.id === userId);
+    const isAlreadyMember = folder.members?.some((member: Record<string, unknown>) => member.id === userId);
     if (isAlreadyMember) {
       return NextResponse.json({ error: "L'utilisateur est déjà membre de ce dossier" }, { status: 400 });
     }

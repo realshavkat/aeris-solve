@@ -25,7 +25,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Dossier non trouvé" }, { status: 404 });
     }
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       lastModified: new Date()
     };
 
@@ -62,7 +62,7 @@ export async function PATCH(
 
         // Mettre à jour la liste des membres si le nouveau propriétaire n'y est pas
         const members = existingFolder.members || [];
-        const isOwnerInMembers = members.some((member: any) => member.id === body.ownerId);
+        const isOwnerInMembers = members.some((member: Record<string, unknown>) => member.id === body.ownerId);
         
         if (!isOwnerInMembers) {
           const newMember = {
@@ -75,7 +75,7 @@ export async function PATCH(
       }
     }
 
-    const updateOperation: any = { $set: updateData };
+    const updateOperation: Record<string, unknown> = { $set: updateData };
     if (updateData.$unset) {
       updateOperation.$unset = updateData.$unset;
       delete updateData.$unset;

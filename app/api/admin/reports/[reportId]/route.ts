@@ -59,7 +59,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Rapport non trouvé" }, { status: 404 });
     }
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       lastModified: new Date()
     };
 
