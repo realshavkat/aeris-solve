@@ -162,11 +162,7 @@ export default function AdminFoldersPage() {
         const data = await response.json();
         setUsers(Array.isArray(data) ? data : []);
       } else {
-        if (response.status === 403) {
-          toast.error('Accès refusé - Droits administrateur requis');
-        } else {
-          console.error('Erreur lors du chargement des utilisateurs:', response.status);
-        }
+        console.error('Erreur lors du chargement des utilisateurs');
         setUsers([]);
       }
     } catch (error) {
@@ -383,43 +379,6 @@ export default function AdminFoldersPage() {
     }
   };
 
-  // NOUVEAU: Fonction pour nettoyer les URLs Discord expirées
-  const cleanDiscordUrl = (url: string | undefined): string | null => {
-    if (!url) return null;
-    
-    try {
-      // Si c'est une URL Discord avec des paramètres d'expiration
-      if (url.includes('cdn.discordapp.com') && url.includes('?ex=')) {
-        // Retirer les paramètres d'expiration
-        const cleanUrl = url.split('?')[0];
-        return cleanUrl;
-      }
-      
-      // Pour les autres URLs, vérifier qu'elles sont valides
-      new URL(url);
-      return url;
-    } catch {
-      // URL invalide
-      return null;
-    }
-  };
-
-  // NOUVEAU: Fonction pour obtenir le nombre correct de membres
-  const getMembersCount = (folder: Folder): number => {
-    // Priorité aux données members si disponibles
-    if (Array.isArray(folder.members)) {
-      return folder.members.length;
-    }
-    
-    // Sinon utiliser membersCount
-    if (typeof folder.membersCount === 'number') {
-      return folder.membersCount;
-    }
-    
-    // Par défaut: au moins le créateur
-    return 1;
-  };
-
   // CORRECTION: Affichage conditionnel pour éviter le rendu avec des données manquantes
   if (loading) {
     return (
@@ -522,179 +481,162 @@ export default function AdminFoldersPage() {
             </CardContent>
           </Card>
         ) : (
-          getFilteredFolders().map((folder) => {
-            // NOUVEAU: Nettoyer l'URL de l'image
-            const cleanImageUrl = cleanDiscordUrl(folder.coverImage);
-            const actualMembersCount = getMembersCount(folder);
-            
-            return (
-              <Card key={folder._id} className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
-                <CardContent className="p-6">
-                  <div className="flex gap-6">
-                    {/* Image de couverture moderne - CORRIGÉE */}
-                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-950 dark:to-purple-950 flex items-center justify-center flex-shrink-0 shadow-md">
-                      {cleanImageUrl ? (
-                        <Image 
-                          src={cleanImageUrl} 
-                          alt={folder.title}
-                          width={80}
-                          height={80}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            // En cas d'erreur, masquer l'image et afficher l'icône
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              parent.innerHTML = '<svg class="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>';
-                            }
-                          }}
-                        />
-                      ) : (
-                        <svg className="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
-                        </svg>
-                      )}
-                    </div>
-                    
-                    {/* Contenu principal */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-xl font-semibold group-hover:text-blue-600 transition-colors">
-                              {folder.title}
-                            </h3>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300">
-                              {folder.reportsCount} rapport{folder.reportsCount !== 1 ? 's' : ''}
+          getFilteredFolders().map((folder) => (
+            <Card key={folder._id} className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
+              <CardContent className="p-6">
+                <div className="flex gap-6">
+                  {/* Image de couverture moderne */}
+                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-950 dark:to-purple-950 flex items-center justify-center flex-shrink-0 shadow-md">
+                    {folder.coverImage ? (
+                      <Image 
+                        src={folder.coverImage} 
+                        alt={folder.title}
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <FolderIcon className="w-10 h-10 text-blue-600" />
+                    )}
+                  </div>
+                  
+                  {/* Contenu principal */}
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-xl font-semibold group-hover:text-blue-600 transition-colors">
+                            {folder.title}
+                          </h3>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300">
+                            {folder.reportsCount} rapport{folder.reportsCount !== 1 ? 's' : ''}
+                          </Badge>
+                          {folder.accessKey && (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300">
+                              <Key className="w-3 h-3 mr-1" />
+                              Privé
                             </Badge>
-                            {folder.accessKey && (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300">
-                                <Key className="w-3 h-3 mr-1" />
-                                Privé
-                              </Badge>
-                            )}
-                          </div>
-
-                          <p className="text-muted-foreground leading-relaxed">
-                            {folder.description}
-                          </p>
-
-                          <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4" />
-                              <span>Créé le {new Date(folder.createdAt).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4" />
-                              <span>{actualMembersCount} membre{actualMembersCount !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Crown className="w-4 h-4" />
-                              <span>Par {folder.creator.name}</span>
-                            </div>
-                          </div>
+                          )}
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="cursor-pointer">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  setSelectedFolder(folder);
-                                  setEditFolderData({
-                                    ...editFolderData,
-                                    title: folder.title,
-                                    description: folder.description,
-                                    coverImage: cleanImageUrl || '', // CORRECTION: Utiliser l'URL nettoyée
-                                  });
-                                  setShowEditFolder(true);
-                                }}
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Modifier les infos
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  // Ouvrir en mode admin avec le paramètre adminMode=true
-                                  window.open(`/dashboard/folders/${folder._id}?admin=true`, '_blank');
-                                }}
-                              >
-                                <FileText className="w-4 h-4 mr-2" />
-                                Voir les rapports
-                              </DropdownMenuItem>
+                        <p className="text-muted-foreground leading-relaxed">
+                          {folder.description}
+                        </p>
 
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  setSelectedFolder(folder);
-                                  setEditFolderData({
-                                    ...editFolderData,
-                                    ownerId: folder.ownerId
-                                  });
-                                  setShowOwnerDialog(true);
-                                }}
-                              >
-                                <Crown className="w-4 h-4 mr-2" />
-                                Changer propriétaire
-                              </DropdownMenuItem>
-                              
-
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  setSelectedFolder(folder);
-                                  setShowMembersDialog(true);
-                                }}
-                              >
-                                <Users className="w-4 h-4 mr-2" />
-                                Gérer les membres
-                              </DropdownMenuItem>
-                              
-
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  setSelectedFolder(folder);
-                                  setEditFolderData({
-                                    ...editFolderData,
-                                    accessKey: folder.accessKey || ''
-                                  });
-                                  setShowAccessKeyDialog(true);
-                                }}
-                              >
-                                <Key className="w-4 h-4 mr-2" />
-                                Clé d&apos;accès
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuSeparator />
-                              
-                              <DropdownMenuItem 
-                                className="text-destructive cursor-pointer"
-                                onClick={() => handleDeleteFolder(folder._id)}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Supprimer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>Créé le {new Date(folder.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            <span>{folder.membersCount} membre{folder.membersCount !== 1 ? 's' : ''}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Crown className="w-4 h-4" />
+                            <span>Par {folder.creator.name}</span>
+                          </div>
                         </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="cursor-pointer">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setSelectedFolder(folder);
+                                setEditFolderData({
+                                  ...editFolderData,
+                                  title: folder.title,
+                                  description: folder.description,
+                                  coverImage: folder.coverImage || '',
+                                });
+                                setShowEditFolder(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Modifier les infos
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => {
+                                // CORRECTION: Ouvrir avec le bon paramètre
+                                window.open(`/dashboard/folders/${folder._id}?admin=true`, '_blank');
+                              }}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              Voir les rapports
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setSelectedFolder(folder);
+                                setEditFolderData({
+                                  ...editFolderData,
+                                  ownerId: folder.ownerId
+                                });
+                                setShowOwnerDialog(true);
+                              }}
+                            >
+                              <Crown className="w-4 h-4 mr-2" />
+                              Changer propriétaire
+                            </DropdownMenuItem>
+                            
+
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setSelectedFolder(folder);
+                                setShowMembersDialog(true);
+                              }}
+                            >
+                              <Users className="w-4 h-4 mr-2" />
+                              Gérer les membres
+                            </DropdownMenuItem>
+                            
+
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setSelectedFolder(folder);
+                                setEditFolderData({
+                                  ...editFolderData,
+                                  accessKey: folder.accessKey || ''
+                                });
+                                setShowAccessKeyDialog(true);
+                              }}
+                            >
+                              <Key className="w-4 h-4 mr-2" />
+                              Clé d&apos;accès
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem 
+                              className="text-destructive cursor-pointer"
+                              onClick={() => handleDeleteFolder(folder._id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
 
@@ -773,11 +715,6 @@ export default function AdminFoldersPage() {
                         width={400}
                         height={225}
                         className="object-cover w-full h-full"
-                        onError={(e) => {
-                          // En cas d'erreur, afficher un placeholder
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIyNSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIyNSIgZmlsbD0iI2Y5ZmFmYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzZiNzI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vbiBkaXNwb25pYmxlPC90ZXh0Pjwvc3ZnPg==';
-                        }}
                       />
                     </div>
                   )}
@@ -960,7 +897,7 @@ export default function AdminFoldersPage() {
                 <div className="flex items-center justify-between">
                   <Label>Membres du dossier</Label>
                   <Badge>
-                    {getMembersCount(selectedFolder)} membre{getMembersCount(selectedFolder) !== 1 ? 's' : ''}
+                    {selectedFolder.members?.length || 0} membre{selectedFolder.members?.length !== 1 ? 's' : ''}
                   </Badge>
                 </div>
                 
@@ -971,14 +908,7 @@ export default function AdminFoldersPage() {
                         <div key={member.id} className="flex items-center justify-between border-b pb-2 last:border-0">
                           <div className="flex items-center gap-2">
                             <Avatar className="w-8 h-8">
-                              <AvatarImage 
-                                src={member.image} 
-                                onError={(e) => {
-                                  // En cas d'erreur d'image, utiliser le fallback
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                }}
-                              />
+                              <AvatarImage src={member.image} />
                               <AvatarFallback className="text-sm">
                                 {member.name[0]?.toUpperCase()}
                               </AvatarFallback>
