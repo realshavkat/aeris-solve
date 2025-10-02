@@ -10,7 +10,7 @@ const handler = NextAuth({
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-      // authorization: { params: { scope: "identify email" } }, // optionnel
+      authorization: { params: { scope: "identify email" } },
     }),
   ],
   // 🔧 anti-boucle de callbackUrl
