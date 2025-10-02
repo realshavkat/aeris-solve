@@ -66,3 +66,47 @@ export function hasPermission(userRole: string, userPermissions: Record<string, 
   const rolePermissions = defaultRolePermissions[userRole as keyof typeof defaultRolePermissions];
   return rolePermissions ? rolePermissions[permission as keyof typeof rolePermissions] === true : false;
 }
+
+// Fonction pour récupérer les permissions d'un utilisateur depuis l'API
+export async function getUserPermissions(userId: string): Promise<string[]> {
+  try {
+    const response = await fetch(`/api/users/${userId}/permissions`);
+    
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Si l'utilisateur a des permissions personnalisées, les retourner
+    if (data.customPermissions && Object.keys(data.customPermissions).length > 0) {
+      return Object.keys(data.customPermissions).filter(
+        permission => data.customPermissions[permission] === true
+      );
+    }
+    
+    // Sinon, retourner les permissions par défaut du rôle
+    const userRole = data.role || 'visitor';
+    const rolePermissions = defaultRolePermissions[userRole as keyof typeof defaultRolePermissions];
+    
+    if (rolePermissions) {
+      return Object.keys(rolePermissions).filter(
+        permission => rolePermissions[permission as keyof typeof rolePermissions] === true
+      );
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Erreur lors de la récupération des permissions:', error);
+    // En cas d'erreur, retourner les permissions minimales (visitor)
+    return Object.keys(defaultRolePermissions.visitor).filter(
+      permission => defaultRolePermissions.visitor[permission as keyof typeof defaultRolePermissions.visitor] === true
+    );
+  }
+}
+
+// Fonction utilitaire pour vérifier si un utilisateur a une permission spécifique
+export async function userHasPermission(userId: string, permission: string): Promise<boolean> {
+  const permissions = await getUserPermissions(userId);
+  return permissions.includes(permission);
+}
