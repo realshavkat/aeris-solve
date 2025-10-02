@@ -1,19 +1,31 @@
-export const runtime = "nodejs";
+export const runtime = "nodejs"; // important: pas d'edge pour Discord/Mongo
 
 import NextAuth from "next-auth";
-import DiscordProvider from "next-auth/providers/discord";
+import Discord from "next-auth/providers/discord";
 
 const handler = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET, // ou AUTH_SECRET si v5
+  secret: process.env.NEXTAUTH_SECRET, // si tu es en v5, mets AUTH_SECRET
   session: { strategy: "jwt" },
   providers: [
-    DiscordProvider({
-      clientId: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+    Discord({
+      clientId: process.env.DISCORD_CLIENT_ID!,         // en v5: AUTH_DISCORD_ID
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!, // en v5: AUTH_DISCORD_SECRET
+      // on demande l'email, sinon Discord peut ne pas le renvoyer
       authorization: { params: { scope: "identify email" } },
+      // on tolère l’absence d’email (sinon certains templates crashtent)
+      profile(p) {
+        return {
+          id: p.id,
+          name: p.global_name ?? p.username ?? `user-${p.id}`,
+          email: p.email ?? null,
+          image: p.avatar
+            ? `https://cdn.discordapp.com/avatars/${p.id}/${p.avatar}.png`
+            : null,
+        };
+      },
     }),
   ],
-  // 🔧 anti-boucle de callbackUrl
+  // coupe l'empilement de callbackUrl & les boucles de redirection
   callbacks: {
     async redirect({ url, baseUrl }) {
       try {
