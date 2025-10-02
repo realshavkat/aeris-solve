@@ -3,6 +3,14 @@ export const runtime = "nodejs"; // important: pas d'edge pour Discord/Mongo
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 
+if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET) {
+  console.error('[AUTH] Missing Discord env vars', {
+    hasId: !!process.env.DISCORD_CLIENT_ID,
+    hasSecret: !!process.env.DISCORD_CLIENT_SECRET,
+  });
+  throw new Error('Missing Discord OAuth env vars');
+}
+
 const handler = NextAuth({
   secret: process.env.NEXTAUTH_SECRET, // si tu es en v5, mets AUTH_SECRET
   session: { strategy: "jwt" },
@@ -40,5 +48,6 @@ const handler = NextAuth({
     },
   },
 });
+
 
 export { handler as GET, handler as POST };
