@@ -52,7 +52,7 @@ export function CreateFolderDialog({ open, onClose, onFolderCreated }: CreateFol
         toast.success("Image téléchargée avec succès");
       }
     } catch (error) {
-      toast.error("Erreur lors du téléchargement de l'image", error);
+      toast.error(`Erreur lors du téléchargement de l'image ${error}`);
     } finally {
       setIsUploading(false);
     }

@@ -263,7 +263,7 @@ export function RichTextArea({
           caretColor: 'currentColor',
           whiteSpace: 'pre-wrap'
         }}
-        placeholder={placeholder}
+        data-placeholder={placeholder}
       />
     </div>
   );

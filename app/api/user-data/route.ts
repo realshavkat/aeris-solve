@@ -61,7 +61,11 @@ export async function GET() {
       status: user.status || "needs_registration"
     };
 
-    return NextResponse.json(userData);
+    // AJOUT: Cache headers pour éviter les requêtes répétées
+    const response = NextResponse.json(userData);
+    response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+    
+    return response;
 
   } catch (error) {
     console.error("Error in user-data route:", error);

@@ -89,21 +89,62 @@ const importanceConfig = {
   },
 };
 
-// CACHE GLOBAL AMÉLIORÉ avec synchronisation
+// CACHE GLOBAL AMÉLIORÉ avec gestion de la visibilité de la page
 const notificationsCache = {
   data: [] as Notification[],
   timestamp: 0,
   isLoading: false,
-  // Nouveaux callbacks pour la synchronisation
-  listeners: new Set<() => void>()
+  listeners: new Set<() => void>(),
+  // AJOUT: État de visibilité de la page
+  isPageVisible: true,
+  lastVisibilityChange: Date.now(),
 };
 
-const CACHE_DURATION = 30 * 1000; // Réduit à 30 secondes pour les notifications
-const REFRESH_INTERVAL = 2 * 60 * 1000; // 2 minutes entre les refresh automatiques
+const CACHE_DURATION = 30 * 1000; // 30 secondes
+const REFRESH_INTERVAL_ACTIVE = 2 * 60 * 1000; // 2 minutes quand la page est active
+const REFRESH_INTERVAL_BACKGROUND = 10 * 60 * 1000; // 10 minutes quand la page est en arrière-plan
+const MIN_TIME_BETWEEN_REQUESTS = 5 * 1000; // 5 secondes minimum entre les requêtes
+
+// AJOUT: Fonction pour gérer la visibilité de la page
+const handleVisibilityChange = () => {
+  const wasVisible = notificationsCache.isPageVisible;
+  notificationsCache.isPageVisible = !document.hidden;
+  notificationsCache.lastVisibilityChange = Date.now();
+
+  console.log(
+    `🔔 Page visibility changed: ${
+      notificationsCache.isPageVisible ? "visible" : "hidden"
+    }`
+  );
+
+  // Si la page redevient visible après avoir été cachée, faire un refresh modéré
+  if (!wasVisible && notificationsCache.isPageVisible) {
+    console.log("📱 Page redevient visible, refresh modéré dans 2 secondes");
+    setTimeout(() => {
+      if (notificationsCache.isPageVisible) {
+        notificationsCache.listeners.forEach((listener) => {
+          // Simuler un refresh en appelant les listeners
+          try {
+            listener();
+          } catch (error) {
+            console.error("Erreur lors du refresh visibility:", error);
+          }
+        });
+      }
+    }, 2000);
+  }
+};
+
+// AJOUT: Initialiser l'écoute de la visibilité de la page
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  // Initialiser l'état
+  notificationsCache.isPageVisible = !document.hidden;
+}
 
 // Fonction pour notifier tous les composants d'un changement
 const notifyListeners = () => {
-  notificationsCache.listeners.forEach(listener => listener());
+  notificationsCache.listeners.forEach((listener) => listener());
 };
 
 export function NotificationsPopover() {
@@ -119,23 +160,39 @@ export function NotificationsPopover() {
   
   // Références pour éviter les fuites mémoire
   const isMountedRef = useRef(true);
-  const refreshIntervalRef = useRef<NodeJS.Timeout>();
-  const fetchAbortControllerRef = useRef<AbortController>();
-
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
+  const lastFetchTimeRef = useRef<number>(0);
+  
   // NOUVELLE FONCTION pour forcer la synchronisation du cache
   const syncFromCache = useCallback(() => {
     if (notificationsCache.data.length > 0) {
       setNotifications(notificationsCache.data);
       setUnreadCount(notificationsCache.data.filter(n => !n.read).length);
-      setAllNotifications(notificationsCache.data); // Synchroniser aussi allNotifications
+      setAllNotifications(notificationsCache.data);
     }
   }, []);
 
-  // FONCTION DE FETCH OPTIMISÉE avec gestion des mises à jour
+  // FONCTION DE FETCH OPTIMISÉE avec gestion de la visibilité
   const fetchNotifications = useCallback(async (force = false) => {
     if (!isMountedRef.current) return;
     
     const now = Date.now();
+    
+    // AJOUT: Vérifier le temps minimum entre les requêtes
+    if (!force && (now - lastFetchTimeRef.current) < MIN_TIME_BETWEEN_REQUESTS) {
+      console.log('⏱️ Requête trop rapide, ignorée');
+      return;
+    }
+    
+    // AJOUT: Si la page n'est pas visible et pas forcée, limiter les requêtes
+    if (!notificationsCache.isPageVisible && !force) {
+      // Seulement si ça fait plus de 5 minutes qu'on a pas fetch
+      if ((now - notificationsCache.timestamp) < (5 * 60 * 1000)) {
+        console.log('📱 Page en arrière-plan, pas de fetch');
+        return;
+      }
+    }
     
     // Utiliser le cache si disponible et récent (sauf si force = true)
     if (!force && notificationsCache.timestamp && (now - notificationsCache.timestamp < CACHE_DURATION)) {
@@ -158,13 +215,14 @@ export function NotificationsPopover() {
     
     fetchAbortControllerRef.current = new AbortController();
     notificationsCache.isLoading = true;
+    lastFetchTimeRef.current = now;
     
     try {
-      console.log('🔔 Fetch notifications depuis API');
+      console.log('🔔 Fetch notifications depuis API (page visible:', notificationsCache.isPageVisible, ')');
       const response = await fetch("/api/notifications", {
         signal: fetchAbortControllerRef.current.signal,
         headers: { 
-          'Cache-Control': 'no-cache' // Forcer le rechargement depuis le serveur
+          'Cache-Control': 'no-cache'
         }
       });
       
@@ -188,8 +246,8 @@ export function NotificationsPopover() {
         
         console.log('✅ Notifications mises à jour:', data.length, 'non lues:', data.filter((n: Notification) => !n.read).length);
       }
-    } catch (error: Record<string, unknown>) {
-      if (error.name !== 'AbortError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== 'AbortError') {
         console.error("❌ Erreur chargement notifications:", error);
       }
     } finally {
@@ -207,7 +265,7 @@ export function NotificationsPopover() {
     };
   }, [syncFromCache]);
 
-  // EFFET PRINCIPAL - TRÈS SIMPLIFIÉ avec chargement plus réactif
+  // EFFET PRINCIPAL - OPTIMISÉ avec gestion de la visibilité
   useEffect(() => {
     isMountedRef.current = true;
     
@@ -219,22 +277,43 @@ export function NotificationsPopover() {
       syncFromCache();
       setInitialLoading(false);
       
-      // Mais vérifier s'il y a des nouvelles notifications
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          fetchNotifications(true);
-        }
-      }, 1000); // Vérifier après 1 seconde
+      // Mais vérifier s'il y a des nouvelles notifications seulement si la page est visible
+      if (notificationsCache.isPageVisible) {
+        setTimeout(() => {
+          if (isMountedRef.current && notificationsCache.isPageVisible) {
+            fetchNotifications(true);
+          }
+        }, 1000);
+      }
     }
     
-    // Interval de refresh
-    if (!refreshIntervalRef.current) {
+    // MODIFIÉ: Interval de refresh adaptatif selon la visibilité
+    const setupInterval = () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+      
+      const interval = notificationsCache.isPageVisible 
+        ? REFRESH_INTERVAL_ACTIVE 
+        : REFRESH_INTERVAL_BACKGROUND;
+      
+      console.log(`⏰ Setup interval: ${interval / 1000}s (page ${notificationsCache.isPageVisible ? 'visible' : 'hidden'})`);
+      
       refreshIntervalRef.current = setInterval(() => {
         if (isMountedRef.current) {
-          fetchNotifications(true);
+          fetchNotifications(false); // Pas forcé, respecte les limitations
         }
-      }, REFRESH_INTERVAL);
-    }
+      }, interval);
+    };
+    
+    setupInterval();
+    
+    // AJOUT: Écouter les changements de visibilité pour ajuster l'interval
+    const visibilityListener = () => {
+      setupInterval();
+    };
+    
+    notificationsCache.listeners.add(visibilityListener);
     
     // Cleanup
     return () => {
@@ -242,20 +321,21 @@ export function NotificationsPopover() {
       if (fetchAbortControllerRef.current) {
         fetchAbortControllerRef.current.abort();
       }
+      notificationsCache.listeners.delete(visibilityListener);
     };
-  }, [fetchNotifications, syncFromCache]); // AUCUNE DÉPENDANCE
+  }, [fetchNotifications, syncFromCache]);
 
   // Cleanup global à la destruction du composant
   useEffect(() => {
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = undefined;
+        refreshIntervalRef.current = null;
       }
     };
   }, []);
 
-  // FONCTION markAsRead CORRIGÉE avec synchronisation optimisée
+  // FONCTION markAsRead OPTIMISÉE
   const markAsRead = async (
     notificationId: string,
     closePopover: boolean = false
@@ -276,7 +356,7 @@ export function NotificationsPopover() {
       
       // Mettre à jour le cache global
       notificationsCache.data = updateNotifications(notificationsCache.data);
-      notifyListeners(); // Notifier les autres instances
+      notifyListeners();
       
       // Puis faire la requête serveur
       const response = await fetch(
@@ -297,19 +377,23 @@ export function NotificationsPopover() {
         setSelectedNotification(null);
       }
       
-      // Forcer un refresh des données pour s'assurer de la cohérence
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          fetchNotifications(true);
-        }
-      }, 500);
+      // MODIFIÉ: Refresh plus modéré - seulement si la page est visible
+      if (notificationsCache.isPageVisible) {
+        setTimeout(() => {
+          if (isMountedRef.current && notificationsCache.isPageVisible) {
+            fetchNotifications(false); // Pas forcé
+          }
+        }, 2000); // 2 secondes au lieu de 500ms
+      }
 
     } catch (error) {
       console.error("❌ Erreur marquage notification:", error);
       toast.error("Erreur lors du marquage de la notification");
       
       // Revenir en arrière en cas d'erreur
-      fetchNotifications(true);
+      if (notificationsCache.isPageVisible) {
+        fetchNotifications(true);
+      }
     }
   };
 
@@ -348,7 +432,7 @@ export function NotificationsPopover() {
     return date.toLocaleDateString();
   };
 
-  // FETCH ALL OPTIMISÉ avec synchronisation
+  // FETCH ALL OPTIMISÉ
   const fetchAllNotifications = useCallback(async () => {
     // Si on a déjà les données dans le cache principal, les utiliser
     if (notificationsCache.data.length > 0 && !loadingAll) {
@@ -356,7 +440,7 @@ export function NotificationsPopover() {
       return;
     }
     
-    if (loadingAll) return; // Éviter les doublons
+    if (loadingAll) return;
     
     setLoadingAll(true);
     try {
@@ -401,6 +485,7 @@ export function NotificationsPopover() {
         
         // Mettre à jour le cache global
         notificationsCache.data = updateAllRead(notificationsCache.data);
+        notifyListeners();
         
         toast.success("Toutes les notifications ont été marquées comme lues");
       }
@@ -410,26 +495,56 @@ export function NotificationsPopover() {
     }
   };
 
+  // AJOUT: Fonction deleteNotification manquante
   const deleteNotification = async (notificationId: string) => {
     try {
+      console.log('🗑️ Suppression notification:', notificationId);
+      
+      // Mise à jour optimiste locale d'abord
+      const updateNotifications = (prev: Notification[]) =>
+        prev.filter((n) => n._id !== notificationId);
+      
+      // Mettre à jour tous les états locaux immédiatement
+      setNotifications(updateNotifications);
+      setAllNotifications(updateNotifications);
+      setUnreadCount((prev) => {
+        const notification = notificationsCache.data.find(n => n._id === notificationId);
+        return notification && !notification.read ? Math.max(0, prev - 1) : prev;
+      });
+      
+      // Mettre à jour le cache global
+      notificationsCache.data = updateNotifications(notificationsCache.data);
+      notifyListeners();
+      
+      // Puis faire la requête serveur
       const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
-      if (response.ok) {
-        const filterDeleted = (prev: Notification[]) => prev.filter(n => n._id !== notificationId);
-        
-        setNotifications(filterDeleted);
-        setAllNotifications(filterDeleted);
-        
-        // Mettre à jour le cache global
-        notificationsCache.data = filterDeleted(notificationsCache.data);
-        
-        toast.success("Notification supprimée");
+      if (!response.ok) {
+        throw new Error('Erreur serveur lors de la suppression');
       }
+
+      console.log('✅ Notification supprimée côté serveur');
+      toast.success("Notification supprimée");
+      
+      // Refresh modéré seulement si la page est visible
+      if (notificationsCache.isPageVisible) {
+        setTimeout(() => {
+          if (isMountedRef.current && notificationsCache.isPageVisible) {
+            fetchNotifications(false);
+          }
+        }, 2000);
+      }
+
     } catch (error) {
-      console.error("Erreur suppression notification:", error);
-      toast.error("Erreur lors de la suppression");
+      console.error("❌ Erreur suppression notification:", error);
+      toast.error("Erreur lors de la suppression de la notification");
+      
+      // Revenir en arrière en cas d'erreur
+      if (notificationsCache.isPageVisible) {
+        fetchNotifications(true);
+      }
     }
   };
 

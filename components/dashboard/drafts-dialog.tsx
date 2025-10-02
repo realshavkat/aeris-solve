@@ -4,21 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FileText, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
-
-interface Draft {
-  _id: string;
-  title: string;
-  content: string;
-  importance: string;
-  tags: string[];
-  color: string;
-  icon: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { type Draft } from "@/types/app";
 
 interface DraftsDialogProps {
   open: boolean;
@@ -38,13 +27,7 @@ export function DraftsDialog({ open, onClose, onSelectDraft, folderId }: DraftsD
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && folderId) {
-      fetchDrafts();
-    }
-  });
-
-  const fetchDrafts = async () => {
+  const fetchDrafts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/drafts?folderId=${folderId}`);
@@ -52,15 +35,23 @@ export function DraftsDialog({ open, onClose, onSelectDraft, folderId }: DraftsD
         const data = await response.json();
         setDrafts(data);
       } else {
-        throw new Error('Erreur chargement brouillons');
+        console.error('Erreur response:', response.status, response.statusText);
+        toast.error("Erreur lors du chargement des brouillons");
       }
     } catch (error) {
-      console.error("Erreur chargement brouillons:", error);
+      console.error('Erreur chargement brouillons:', error);
       toast.error("Erreur lors du chargement des brouillons");
     } finally {
       setLoading(false);
     }
-  };
+  }, [folderId]); // Retirer 'loading' des dépendances
+
+  // Charger les brouillons seulement quand le dialog s'ouvre
+  useEffect(() => {
+    if (open && folderId && !loading) { // Ajouter la condition !loading ici
+      fetchDrafts();
+    }
+  }, [open, folderId, fetchDrafts, loading]); // Retirer 'loading' des dépendances
 
   const handleDeleteDraft = async (draftId: string) => {
     try {

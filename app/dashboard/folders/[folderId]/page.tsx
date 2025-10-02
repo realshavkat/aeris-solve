@@ -1,7 +1,8 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,9 @@ import {
   SortAsc,
   SortDesc,
   List,
-  Grid3X3
+  Grid3X3,
+  X,
+  Shield
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ReportEditor } from "@/components/reports/report-editor";
@@ -51,6 +54,16 @@ import { DraftsDialog } from "@/components/dashboard/drafts-dialog";
 import { FileText } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { parseMarkdownWithColors } from "@/components/reports/block-editor";
+import type { Report as AppReport, Draft } from "@/types/app";
+
+type ReportSaveData = {
+  title: string;
+  content: string;
+  tags: string[];
+  importance: string;
+  icon?: string;
+  color?: string;
+};
 
 const importanceOptions = [
   { value: "low", label: "Faible", color: "bg-green-500/10 text-green-700 border-green-200", icon: "🟢" },
@@ -63,17 +76,61 @@ type SortField = 'title' | 'importance' | 'updatedAt' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 type ViewMode = 'list' | 'grid';
 
+type ReportRow = Pick<
+  AppReport,
+  "_id" | "title" | "content" | "tags" | "importance" | "updatedAt" | "createdAt"
+> & {
+  icon?: string;
+  color?: string;
+};
+
 export default function FolderPage() {
   const params = useParams();
   const folderId = params.folderId as string;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  
+  // AJOUT: Récupérer le mode admin depuis l'URL
+  const adminModeFromUrl = searchParams.get('adminMode') === 'true';
+  
+  // AJOUT: État pour le mode admin - initialiser avec la valeur de l'URL
+  const [isAdminMode, setIsAdminMode] = useState(adminModeFromUrl);
 
-  const { hasPermission } = usePermissions(); // Plus de isLoading
+  // CORRECTION: Référence pour éviter les boucles
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const [folder, setFolder] = useState<Record<string, unknown>>(null);
-  const [reports, setReports] = useState<Record<string, unknown>[]>([]);
+  // AJOUT: Mettre à jour l'état si l'URL change
+  useEffect(() => {
+    setIsAdminMode(adminModeFromUrl);
+  }, [adminModeFromUrl]);
+
+  // AJOUT: Effet pour capturer la page précédente depuis sessionStorage - UNE SEULE FOIS
+  useEffect(() => {
+    const savedPreviousPage = sessionStorage.getItem('previousPage');
+    if (savedPreviousPage) {
+      console.log('📍 Page précédente récupérée:', savedPreviousPage);
+    }
+    
+    return () => {
+      sessionStorage.removeItem('previousPage');
+    };
+  }, []); // CORRECTION: Tableau de dépendances vide
+
+  const { hasPermission } = usePermissions();
+
+  const [folder, setFolder] = useState<{
+    _id: string;
+    title: string;
+    ownerId: string;
+    adminAccess?: boolean;
+    [key: string]: unknown;
+  } | null>(null);
+  const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
-  const [editingReport, setEditingReport] = useState<Record<string, unknown>>(null);
+  const [editingReport, setEditingReport] = useState<Record<string, unknown> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>('updatedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -83,38 +140,94 @@ export default function FolderPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDrafts, setShowDrafts] = useState(false);
 
-  useEffect(() => {
-    fetchFolder();
-    fetchReports();
-  });
-
-  const fetchFolder = async () => {
+  const fetchFolder = useCallback(async () => {
     try {
-      const response = await fetch(`/api/folders/${folderId}`);
+      const adminParam = isAdminMode ? "?adminMode=true" : "";
+      const response = await fetch(`/api/folders/${folderId}${adminParam}`);
+
       if (response.ok) {
         const data = await response.json();
         setFolder(data);
+        setError(null);
+      } else if (response.status === 403) {
+        setError("Vous n'avez pas accès à ce dossier");
+        toast.error("Accès refusé à ce dossier");
+      } else {
+        setError("Erreur lors du chargement du dossier");
       }
-    } catch (error) {
-      console.error("Erreur chargement dossier:", error);
+    } catch (e) {
+      console.error("Erreur chargement dossier:", e);
+      setError("Erreur lors du chargement du dossier");
     }
-  };
+  }, [folderId, isAdminMode]);
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
-      const response = await fetch(`/api/reports?folderId=${folderId}`);
+      const adminParam = isAdminMode ? '&adminMode=true' : '';
+      const response = await fetch(`/api/reports?folderId=${folderId}${adminParam}`);
+      
       if (response.ok) {
         const data = await response.json();
         setReports(data);
+      } else if (response.status === 403) {
+        setReports([]);
       }
     } catch (error) {
       console.error("Erreur chargement rapports:", error);
+      setReports([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [folderId, isAdminMode]);
 
-  const handleCreateReport = async (data: Record<string, unknown>) => {
+  // CORRECTION: Effet principal consolidé et optimisé
+  useEffect(() => {
+    if (!folderId || isInitialized) return;
+
+    console.log('🔄 Initialisation de la page dossier');
+    
+    const initializePage = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchFolder(),
+          fetchReports()
+        ]);
+      } catch (error) {
+        console.error('Erreur initialisation:', error);
+      } finally {
+        setLoading(false);
+        setIsInitialized(true);
+      }
+    };
+
+    initializePage();
+  }, [folderId, isAdminMode, isInitialized, setIsInitialized, fetchFolder, fetchReports]); // CORRECTION: Seulement folderId en dépendance
+
+  // CORRECTION: Effet séparé pour les changements de mode admin APRÈS initialisation
+  useEffect(() => {
+    if (!isInitialized || !folderId) return;
+
+    console.log('🔄 Changement mode admin détecté');
+    
+    const updateData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchFolder(),
+          fetchReports()
+        ]);
+      } catch (error) {
+        console.error('Erreur mise à jour mode admin:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    updateData();
+  }, [isAdminMode, isInitialized, folderId, fetchFolder, fetchReports]); // CORRECTION: Dépendances spécifiques
+
+  const handleCreateReport = async (data: ReportSaveData) => {
     try {
       const response = await fetch("/api/reports", {
         method: "POST",
@@ -132,7 +245,7 @@ export default function FolderPage() {
     }
   };
 
-  const handleEditReport = async (data: Record<string, unknown>) => {
+  const handleEditReport = async (data: ReportSaveData) => {
     if (!editingReport?._id) {
       console.error("Pas d'ID de rapport pour la modification");
       toast.error("Erreur: ID de rapport manquant");
@@ -158,14 +271,18 @@ export default function FolderPage() {
       const updatedReport = await response.json();
       console.log("Rapport mis à jour:", updatedReport);
 
+      // CORRECTION: Rafraîchir les données SANS redirection
       await fetchReports();
-      setEditingReport(null);
+      
+      // CORRECTION: Rester dans l'éditeur après la mise à jour
+      // setEditingReport(null); // SUPPRIMÉ: Ne pas fermer l'éditeur
+      
       toast.success("Rapport mis à jour avec succès");
     } catch (error) {
       console.error("Erreur mise à jour rapport:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur lors de la mise à jour";
       toast.error(errorMessage);
-      throw error; // Re-throw pour que l'éditeur puisse gérer l'erreur
+      throw error;
     }
   };
 
@@ -237,16 +354,43 @@ export default function FolderPage() {
   };
 
   const filteredAndSortedReports = getSortedAndFilteredReports();
-
-  const handleSelectDraft = (draft: Record<string, unknown>) => {
+  
+  const handleSelectDraft = (draft: Draft) => {
     setEditingReport({
       ...draft,
       _id: null,
       draftId: draft._id
     });
+    setShowDrafts(false);
   };
 
-  if (loading) { // Seulement le loading des données
+  // CORRECTION: Fonction de retour simplifiée
+  const handleGoBack = () => {
+    console.log('🔙 Retour demandé');
+    
+    const savedPreviousPage = sessionStorage.getItem('previousPage');
+    console.log('📍 Page précédente sauvegardée:', savedPreviousPage);
+    
+    if (isAdminMode && folder && folder.ownerId !== session?.user?.id) {
+      console.log('🔧 Mode admin détecté - dossier d\'un autre utilisateur');
+      
+      if (savedPreviousPage && savedPreviousPage.includes('/dashboard/admin')) {
+        console.log('➡️ Retour vers:', savedPreviousPage);
+        const url = new URL(savedPreviousPage);
+        router.push(url.pathname);
+      } else {
+        console.log('➡️ Retour vers dashboard admin par défaut');
+        router.push('/dashboard/admin');
+      }
+    } else {
+      console.log('🏠 Retour vers dashboard principal');
+      router.push('/dashboard');
+    }
+    
+    sessionStorage.removeItem('previousPage');
+  };
+
+  if (loading && !isInitialized) {
     return (
       <div className="p-6 flex justify-center items-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -254,10 +398,53 @@ export default function FolderPage() {
     );
   }
 
+  // AJOUT: Affichage d'erreur si accès refusé
+  if (error) {
+    return (
+      <div className="p-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm" className="cursor-pointer">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Retour au dashboard
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-950 rounded-full flex items-center justify-center mx-auto mb-4">
+              <X className="w-8 h-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2 text-red-700 dark:text-red-300">
+              Accès refusé
+            </h2>
+            <p className="text-red-600 dark:text-red-400 mb-6">
+              {error}
+            </p>
+            <p className="text-sm text-red-500 dark:text-red-400">
+              Redirection vers le dashboard dans quelques secondes...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (showEditor || editingReport) {
     return (
       <ReportEditor
-        initialData={editingReport}
+        initialData={editingReport ? {
+          title: String(editingReport.title || ''),
+          content: String(editingReport.content || ''),
+          importance: String(editingReport.importance || 'low'),
+          tags: Array.isArray(editingReport.tags) ? editingReport.tags : [],
+          color: String(editingReport.color || ''),
+          icon: String(editingReport.icon || ''),
+          author: editingReport.author as { name?: string } | undefined
+        } : undefined}
         onSave={editingReport ? handleEditReport : handleCreateReport}
         onCancel={() => {
           setShowEditor(false);
@@ -265,22 +452,37 @@ export default function FolderPage() {
         }}
         isEditing={!!editingReport}
         folderId={folderId}
-        draftId={editingReport?.draftId}
+        draftId={editingReport?.draftId as string | undefined}
       />
     );
   }
 
   return (
     <div className="p-8 space-y-6">
+
+      {isAdminMode && folder?.adminAccess && folder?.ownerId !== session?.user?.id && (
+        <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+          <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
+            <Shield className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              Mode Admin - Accès invisible au dossier &quot;{folder.title}&quot;
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="sm" className="cursor-pointer">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Retour
-            </Button>
-          </Link>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="cursor-pointer"
+            onClick={handleGoBack} // MODIFICATION: Utiliser la nouvelle fonction
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Retour
+          </Button>
           <h1 className="text-3xl font-bold">{folder?.title}</h1>
         </div>
 
@@ -439,10 +641,10 @@ export default function FolderPage() {
               </div>
 
               <div className="col-span-1"></div>
+              <div className="col-span-1 hidden md:flex"></div>
             </div>
           </div>
 
-          {/* Table Body */}
           <div className="divide-y">
             {filteredAndSortedReports.map((report) => {
               const importance = importanceOptions.find((opt) => opt.value === report.importance);
@@ -494,7 +696,7 @@ export default function FolderPage() {
 
                     {/* Actions */}
                     <div className="col-span-1 flex justify-end">
-                      <DropdownMenu>  
+                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
@@ -506,7 +708,6 @@ export default function FolderPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {/* MODIFICATION: Tous les membres peuvent modifier */}
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
@@ -517,7 +718,6 @@ export default function FolderPage() {
                             Modifier
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {/* MODIFICATION: Tous les membres peuvent supprimer */}
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
@@ -537,7 +737,7 @@ export default function FolderPage() {
           </div>
         </div>
       ) : (
-        // Grid View (existing card layout)
+        // Grid View
         <div className="grid gap-4">
           {filteredAndSortedReports.map((report) => {
             const importance = importanceOptions.find((opt) => opt.value === report.importance);

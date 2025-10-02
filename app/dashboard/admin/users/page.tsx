@@ -81,6 +81,12 @@ interface User {
   lastActivity?: string;
 }
 
+interface CustomRole {
+  name: string;
+  color: string;
+  icon: string;
+}
+
 const statusOptions = [
   { value: 'pending', label: 'En attente', color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800', icon: <Clock className="w-3 h-3" /> },
   { value: 'approved', label: 'Approuvé', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800', icon: <UserCheck className="w-3 h-3" /> },
@@ -98,7 +104,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -111,13 +117,13 @@ export default function AdminUsersPage() {
   const [editUserData, setEditUserData] = useState({
     rpName: '',
     anonymousNickname: '',
-    role: '',
-    status: ''
+    status: '',
+    role: ''
   });
   const [showPendingDetails, setShowPendingDetails] = useState(false);
   const [pendingUserDetails, setPendingUserDetails] = useState<User | null>(null);
   const [activeUserTab, setActiveUserTab] = useState("all");
-  const [customRoles, setCustomRoles] = useState<Record<string, unknown>[]>([]);
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -305,6 +311,7 @@ export default function AdminUsersPage() {
   const getFilteredUsersByTab = () => {
     let baseUsers = users;
     
+    // Apply tab filter first
     switch (activeUserTab) {
       case 'pending':
         baseUsers = users.filter(u => u.status === 'pending');
@@ -320,6 +327,10 @@ export default function AdminUsersPage() {
         break;
       default:
         baseUsers = users;
+        // Apply status filter only when on "all" tab
+        if (statusFilter !== 'all') {
+          baseUsers = baseUsers.filter(u => u.status === statusFilter);
+        }
     }
 
     return baseUsers.filter(user => {

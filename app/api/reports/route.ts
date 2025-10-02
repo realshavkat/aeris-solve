@@ -14,14 +14,47 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const folderId = searchParams.get('folderId');
+    const adminMode = searchParams.get('adminMode') === 'true';
 
     if (!folderId) {
       return NextResponse.json({ error: "folderId requis" }, { status: 400 });
     }
 
+    // CORRECTION: Valider l'ObjectId
+    if (!ObjectId.isValid(folderId)) {
+      return NextResponse.json({ error: "ID de dossier invalide" }, { status: 400 });
+    }
+
     const { db } = await connectToDatabase();
 
-    // Utiliser directement MongoDB au lieu de Mongoose
+    // AJOUT: Récupérer l'utilisateur et le dossier en parallèle pour la vérification des droits
+    const [user, folder] = await Promise.all([
+      db.collection("users").findOne({ _id: new ObjectId(session.user.id) }),
+      db.collection("folders").findOne({ _id: new ObjectId(folderId) })
+    ]);
+
+    if (!user) {
+      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+    }
+
+    if (!folder) {
+      return NextResponse.json({ error: "Dossier non trouvé" }, { status: 404 });
+    }
+
+    // AJOUT: Vérification d'accès avec mode admin
+    const isOwner = folder.ownerId === session.user.id;
+    const isMember = folder.members?.some((member: { id: string }) => member.id === session.user.id);
+    
+    // CORRECTION: Le mode admin ne s'applique que si ce n'est pas notre propre dossier
+    const isAdminAccess = adminMode && user.role === 'admin' && !isOwner;
+    
+    if (!isOwner && !isMember && !isAdminAccess) {
+      return NextResponse.json({ 
+        error: "Vous n'avez pas accès à ce dossier" 
+      }, { status: 403 });
+    }
+
+    // Récupérer les rapports seulement si l'utilisateur a accès
     const reports = await db.collection("reports")
       .find({ folderId })
       .sort({ updatedAt: -1 })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +54,7 @@ export function EditUserDialog({ user, open, onClose, onSaved }: EditUserDialogP
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialiser le formulaire quand l'utilisateur change
-  useState(() => {
+  useEffect(() => {
     if (user) {
       setFormData({
         rpName: user.rpName || "",

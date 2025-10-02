@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     if (!session?.user?.id) {
       router.replace("/");
       return;
@@ -89,13 +89,13 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id, router]);
 
   useEffect(() => {
     if (session?.user?.id) {
       fetchUserData();
     }
-  });
+  }, [session?.user?.id, fetchUserData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +169,15 @@ export default function ProfilePage() {
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-300 border-gray-200 dark:border-gray-800';
     }
   };
+
+  // CORRECTION: Early returns avec loading conditionnel
+  if (!session?.user?.id) {
+    return (
+      <div className="min-h-screen p-8 lg:p-12 max-w-4xl mx-auto flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

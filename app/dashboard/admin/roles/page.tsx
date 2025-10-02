@@ -118,6 +118,8 @@ export default function AdminRolesPage() {
     fetchRoles();
   }, []);
 
+  const count = selectedRole?.userCount ?? 0;
+
   const fetchRoles = async () => {
     try {
       setLoading(true);
@@ -800,27 +802,30 @@ export default function AdminRolesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog suppression de rôle */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={() => {
-        if (!isSubmitting) {
-          setShowDeleteDialog(false);
-          setSelectedRole(null);
-        }
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer le rôle ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le rôle &quot;{selectedRole?.name}&quot; ?
-              Cette action est irréversible.
-              {selectedRole?.userCount > 0 && (
-                <span className="block mt-2 text-destructive font-medium">
-                  ⚠️ Ce rôle est utilisé par {selectedRole.userCount} utilisateur{selectedRole.userCount > 1 ? 's' : ''}.
-                  Vous ne pouvez pas le supprimer.
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+
+        {/* Dialog suppression de rôle */}
+        <AlertDialog
+          open={showDeleteDialog}
+          onOpenChange={(open) => {
+            if (isSubmitting) return;
+            setShowDeleteDialog(open);
+            if (!open) setSelectedRole(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer le rôle ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer le rôle &quot;{selectedRole?.name}&quot; ?
+                Cette action est irréversible.
+                {count > 0 && (
+                  <span className="block mt-2 text-destructive font-medium">
+                    ⚠️ Ce rôle est utilisé par {count} utilisateur{count > 1 ? "s" : ""}.
+                    Vous ne pouvez pas le supprimer.
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting} className="cursor-pointer">
               Annuler

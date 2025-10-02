@@ -676,7 +676,7 @@ export default function AdminMissionsPage() {
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir supprimer la mission &quot;{missionToDelete?.title}&quot; ?
               Cette action est irréversible et supprimera définitivement la mission.
-              {missionToDelete?.assignedUsers?.length > 0 && (
+              {missionToDelete?.assignedUsers && missionToDelete.assignedUsers.length > 0 && (
                 <span className="block mt-2 font-medium text-amber-600 dark:text-amber-400">
                   ⚠️ {missionToDelete.assignedUsers.length} utilisateur(s) sont actuellement assigné(s) à cette mission.
                 </span>
@@ -740,6 +740,27 @@ export default function AdminMissionsPage() {
 }
 
 // Composant pour le dialog de création/modification - VERSION AMÉLIORÉE
+interface CreateMissionDialogProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  setTitle: (title: string) => void;
+  description: string;
+  setDescription: (description: string) => void;
+  priority: string;
+  setPriority: (priority: string) => void;
+  sendNotification: boolean;
+  setSendNotification: (sendNotification: boolean) => void;
+  users: User[];
+  selectedUsers: Set<string>;
+  onUserSelect: (userId: string) => void;
+  onSelectAll: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+  isEditing?: boolean;
+  editingMission?: Mission | null;
+}
+
 function CreateMissionDialog({
   open,
   onClose,
@@ -759,7 +780,7 @@ function CreateMissionDialog({
   isSubmitting,
   isEditing = false,
   editingMission = null
-}: Record<string, unknown>) {
+}: CreateMissionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">

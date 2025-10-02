@@ -51,7 +51,7 @@ export function EditFolderDialog({ folder, open, onClose, onSave }: EditFolderDi
         toast.success("Image téléchargée avec succès");
       }
     } catch (error) {
-      toast.error("Erreur lors du téléchargement de l'image", error);
+      toast.error(`Erreur lors du téléchargement de l'image ${error}`);
     } finally {
       setIsUploading(false);
     }

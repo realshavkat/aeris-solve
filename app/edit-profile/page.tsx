@@ -51,7 +51,7 @@ export default function EditProfilePage() {
         setError(data.message);
       }
     } catch (err) {
-      setError("Une erreur est survenue", err);
+      setError(`Une erreur est survenue ${err}`);
     } finally {
       setIsSubmitting(false);
     }

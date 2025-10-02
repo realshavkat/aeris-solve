@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Folder, Lock, Share2, UserPlus, Search, Users, Calendar, Eye } from "lucide-react";
 import { CreateFolderDialog } from "./create-folder-dialog";
@@ -8,6 +8,7 @@ import { EditFolderDialog } from "./edit-folder-dialog";
 import { JoinFolderDialog } from "./join-folder-dialog";
 import { ShareFolderDialog } from "./share-folder-dialog";
 import { ManageMembersDialog } from "./manage-members-dialog";
+import type { Folder as ManageMembersFolder } from "./manage-members-dialog";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,16 @@ import { useSession } from "next-auth/react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label"; // AJOUT DE L'IMPORT MANQUANT
+
+// Type pour étendre la session avec le rôle
+interface ExtendedUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  status?: string;
+  role?: string;
+}
 
 // Mettre à jour l'interface Folder
 interface Folder {
@@ -43,25 +54,30 @@ interface Folder {
   };
 }
 
-export function FoldersView() {
+export default function FoldersView() {
   const { data: session } = useSession();
-  const { hasPermission } = usePermissions(); // Plus de isLoading
+  const { hasPermission } = usePermissions();
   const router = useRouter();
+  
   const [folders, setFolders] = useState<Folder[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // AJOUT DE L'ÉTAT MANQUANT
+  const [isLoading, setIsLoading] = useState(true);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [sharingFolder, setSharingFolder] = useState<Folder | null>(null);
   const [managingMembersFolder, setManagingMembersFolder] = useState<Folder | null>(null);
   const [search, setSearch] = useState("");
   const [adminMode, setAdminMode] = useState(false);
+  
+  // CORRECTION: État pour éviter les boucles
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Modifier la fonction fetchFolders pour inclure le mode admin
-  const fetchFolders = async () => {
+  // CORRECTION: Fonction fetchFolders avec useCallback SANS adminMode et session dans les dépendances
+  const fetchFolders = useCallback(async () => {
+    if (!session?.user) return;
+    
     try {
-      setIsLoading(true); // UTILISATION DE setIsLoading
-      const endpoint = adminMode && session?.user?.role === 'admin' 
+      const endpoint = adminMode && (session.user as ExtendedUser).role === 'admin' 
         ? '/api/admin/folders' 
         : '/api/folders';
       
@@ -76,31 +92,83 @@ export function FoldersView() {
       console.error('Erreur:', error);
       toast.error('Erreur lors du chargement des dossiers');
     } finally {
-      setIsLoading(false); // UTILISATION DE setIsLoading
+      setIsLoading(false);
     }
-  };
+  }, [adminMode, session?.user]); // CORRECTION: Pas de dépendances pour éviter les boucles
 
-  // Recharger les dossiers quand le mode admin change
+  // CORRECTION: Effet d'initialisation unique
   useEffect(() => {
+    if (!session?.user || isInitialized) return;
+    
+    console.log('🚀 Initialisation FoldersView');
+    setIsInitialized(true);
     fetchFolders();
-  });
+  }, [session?.user, isInitialized, fetchFolders]);
 
-  const handleFolderCreated = (newFolder: Folder) => {
+  // CORRECTION: Effet séparé pour le changement de mode admin
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    console.log('🔄 Changement mode admin:', adminMode);
+    
+    // Refetch avec un délai pour éviter les requêtes simultanées
+    const timeoutId = setTimeout(() => {
+      if (session?.user) {
+        setIsLoading(true);
+        const endpoint = adminMode && (session.user as ExtendedUser).role === 'admin' 
+          ? '/api/admin/folders' 
+          : '/api/folders';
+        
+        fetch(endpoint)
+          .then(response => response.ok ? response.json() : Promise.reject())
+          .then(data => setFolders(data))
+          .catch(error => {
+            console.error('Erreur:', error);
+            toast.error('Erreur lors du chargement des dossiers');
+          })
+          .finally(() => setIsLoading(false));
+      }
+    }, 200);
+    
+    return () => clearTimeout(timeoutId);
+  }, [adminMode, isInitialized, session?.user]); // CORRECTION: Ajout de session?.user
+
+  const handleFolderCreated = (folder: Record<string, unknown>) => {
+    const newFolder = folder as unknown as Folder;
     setFolders(prev => [newFolder, ...prev]);
   };
 
-  const handleFolderJoined = (folder: Folder) => {
-    // Vérifier si le dossier n'existe pas déjà pour éviter les doublons
+  const handleFolderJoined = (folder: Record<string, unknown>) => {
+    const newFolder = folder as unknown as Folder;
     setFolders(prev => {
-      const exists = prev.some(f => f._id === folder._id);
+      const exists = prev.some(f => f._id === newFolder._id);
       if (exists) return prev;
-      return [folder, ...prev];
+      return [newFolder, ...prev];
     });
     toast.success("Vous avez rejoint le dossier avec succès");
   };
 
   const navigateToFolder = (folderId: string) => {
-    router.push(`/dashboard/folders/${folderId}`);
+    // AJOUT: Sauvegarder la page actuelle AVEC plus de détails
+    const currentUrl = window.location.href;
+    sessionStorage.setItem('previousPage', currentUrl);
+    console.log('💾 Page sauvegardée avant navigation:', currentUrl);
+    
+    // CORRECTION: Ne pas activer le mode admin si c'est notre propre dossier
+    const folder = folders.find(f => f._id === folderId);
+    const isOwnFolder = folder?.ownerId === session?.user?.id;
+    
+    console.log('📁 Navigation vers dossier:', folderId);
+    console.log('👤 Est notre dossier:', isOwnFolder);
+    console.log('🔧 Admin mode actuel:', adminMode);
+    
+    // Seulement ajouter adminMode si on est admin ET que ce n'est pas notre dossier
+    const shouldUseAdminMode = adminMode && (session?.user as ExtendedUser)?.role === 'admin' && !isOwnFolder;
+    const adminParam = shouldUseAdminMode ? '?adminMode=true' : '';
+    
+    console.log('➡️ Navigation vers:', `/dashboard/folders/${folderId}${adminParam}`);
+    
+    router.push(`/dashboard/folders/${folderId}${adminParam}`);
   };
 
   const handleShare = (e: React.MouseEvent, folder: Folder) => {
@@ -112,16 +180,15 @@ export function FoldersView() {
     e.stopPropagation();
     setManagingMembersFolder(folder);
   };
-
-  const handleMembersUpdated = (updatedFolder: Folder) => {
+  const handleMembersUpdated = (updatedFolder: ManageMembersFolder) => {
     setFolders(prev => prev.map(f => 
-      f._id === updatedFolder._id ? updatedFolder : f
+      f._id === updatedFolder._id ? { ...f, ...updatedFolder } : f
     ));
   };
 
   // Filtrage par recherche
-  const filteredFolders = folders.filter(folder => {
-    const q = search.trim().toLowerCase();
+  const filteredFolders: Folder[] = folders.filter((folder: Folder): boolean => {
+    const q: string = search.trim().toLowerCase();
     if (!q) return true;
     return (
       folder.title.toLowerCase().includes(q) ||
@@ -129,6 +196,15 @@ export function FoldersView() {
       folder.creator?.name.toLowerCase().includes(q)
     );
   });
+
+  // CORRECTION: Vérifier session ET initialisation
+  if (!session?.user || !isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -163,7 +239,7 @@ export function FoldersView() {
       </div>
 
       {/* Toggle Mode Admin - visible uniquement pour les admins */}
-      {session?.user?.role === 'admin' && (
+      {(session?.user as ExtendedUser)?.role === 'admin' && (
         <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-card mb-4">
           <Switch
             id="admin-mode"
@@ -193,7 +269,7 @@ export function FoldersView() {
       </div>
 
       {/* Indicateur du mode admin actif */}
-      {adminMode && session?.user?.role === 'admin' && (
+      {adminMode && (session?.user as ExtendedUser)?.role === 'admin' && (
         <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg">
           <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
             <Eye className="w-4 h-4" />
@@ -358,8 +434,8 @@ export function FoldersView() {
           open={!!editingFolder}
           onClose={() => setEditingFolder(null)}
           onSave={async (data) => {
-            // Vérifier que l'utilisateur est bien le propriétaire
-            if (editingFolder.ownerId !== session?.user?.id) {
+            // CORRECTION: Utiliser refreshFolders au lieu de fetchFolders
+            if (editingFolder.ownerId !== (session?.user as ExtendedUser)?.id) {
               toast.error("Vous n'êtes pas autorisé à modifier ce dossier");
               setEditingFolder(null);
               return;

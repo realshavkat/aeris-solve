@@ -2,28 +2,38 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { FoldersView } from "@/components/dashboard/folders-view";
+import { useEffect, useState } from "react";
+import FoldersView from "@/components/dashboard/folders-view";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    if (status === "loading") return; // Attendre que la session soit chargée
+
     if (status === "unauthenticated") {
       router.replace("/");
       return;
     }
 
     if (status === "authenticated" && session?.user) {
-      if (session.user.status !== "approved" || session.user.role !== "member") {
+      if (session.user.status !== "approved") {
         router.replace("/waiting");
+        return;
       }
+      setIsReady(true);
     }
   }, [session, status, router]);
 
-  if (status === "loading" || !session?.user) {
-    return <div>Chargement...</div>;
+  // CORRECTION: Loading plus simple
+  if (status === "loading" || !isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
   return (

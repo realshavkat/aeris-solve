@@ -27,7 +27,7 @@ interface Member {
   isOwner?: boolean;
 }
 
-interface Folder {
+export interface Folder {
   _id: string;
   title: string;
   ownerId: string;

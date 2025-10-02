@@ -1,51 +1,44 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { uploadToDiscord } from "@/lib/discord-upload";
-import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import {
-  Type, 
-  Table, 
-  Code, 
-  Quote, 
-  CheckSquare,
-  Image,
-  Minus,
-  Plus,
-  GripVertical,
-  Trash2,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Bold,
-  Italic,
-  Strikethrough,
-  Link,
-  ChevronUp,
-  ChevronDown,
-  MoveVertical,
-  Eye,
-  List, // AJOUT: Import manquant de List
-  ListOrdered // AJOUT: Import de ListOrdered aussi
+  Bold, Italic, Strikethrough, Code, Link, List, ListOrdered, Quote,
+  Type, Table, CheckSquare, ImageIcon, Minus, MoveVertical, Plus,
+  ChevronUp, ChevronDown, GripVertical, Trash2, AlignLeft, AlignCenter, AlignRight,
+  Eye, ZoomIn, ZoomOut, RotateCcw, Download
 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { uploadToDiscord } from "@/lib/discord-upload";
+import { toast } from "sonner";
 
 export interface Block {
   id: string;
-  type: 'text' | 'heading' | 'list' | 'table' | 'image' | 'quote' | 'code' | 'divider' | 'checklist' | 'spacer';
+  type: 'text' | 'heading' | 'list' | 'table' | 'image' | 'quote' | 'code' | 'divider' | 'checklist' | 'spacer' | 'file';
   content: Record<string, unknown>;
   order: number;
 }
+
+const toContent = (v: unknown) => v as unknown as Record<string, unknown>;
 
 interface BlockEditorProps {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
 }
+
+type BlockProps = {
+  block: Block;
+  onChange: (block: Block) => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+};
 
 // AJOUT: Fonction utilitaire exportée pour parser le markdown SANS les couleurs
 export function parseMarkdownWithColors(text: string): string {
@@ -67,17 +60,227 @@ export function parseMarkdownWithColors(text: string): string {
   return result;
 }
 
+// CORRECTION: Définir l'interface pour les props de RichTextArea
+interface RichTextAreaProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  autoFocus?: boolean;
+  multiline?: boolean;
+  alignment?: string;
+  onAlignmentChange?: (alignment: string) => void;
+  // NOUVEAU: Ajout des props pour les couleurs
+  textColor?: string;
+  backgroundColor?: string;
+  onTextColorChange?: (color: string) => void;
+  onBackgroundColorChange?: (color: string) => void;
+}
+
+// NOUVEAU: Palette de couleurs pour le texte et l'arrière-plan AMÉLIORÉE
+const textColorPalette = [
+  '#000000', '#374151', '#6b7280', '#9ca3af', '#d1d5db', '#f3f4f6', '#ffffff',
+  '#dc2626', '#ea580c', '#d97706', '#ca8a04', '#65a30d', '#16a34a', '#059669',
+  '#0891b2', '#0284c7', '#2563eb', '#4f46e5', '#7c3aed', '#a855f7', '#c026d3',
+  '#db2777', '#e11d48'
+];
+
+const backgroundColorPalette = [
+  'transparent', '#1f2937', '#374151', '#4b5563', '#6b7280', '#9ca3af',
+  '#fee2e2', '#fed7aa', '#fef3c7', '#fef08a', '#d9f99d', '#bbf7d0', '#a7f3d0',
+  '#a0f0ed', '#bfdbfe', '#c7d2fe', '#ddd6fe', '#e9d5ff', '#f3e8ff',
+  '#fce7f3', '#fdf2f8', '#fef7cd', '#ecfccb'
+];
+
+// ColorPicker component definition
+import React from "react";
+
+interface ColorPickerProps {
+  colors: string[];
+  selectedColor: string;
+  onColorSelect?: (color: string) => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  title?: string;
+}
+
+export const ColorPicker: React.FC<ColorPickerProps> = ({
+  colors,
+  selectedColor,
+  onColorSelect,
+  isOpen,
+  onOpenChange,
+  title
+}) => {
+  const [customColor, setCustomColor] = useState(selectedColor);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  const handleCustomColorChange = (color: string) => {
+    setCustomColor(color);
+    if (onColorSelect) onColorSelect(color);
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-1 cursor-pointer border-2"
+          style={{
+            backgroundColor: selectedColor === 'transparent' ? '#f0f0f0' : selectedColor,
+            borderColor: selectedColor === 'transparent' ? '#ddd' : selectedColor,
+            position: 'relative'
+          }}
+          title={title}
+        >
+          {selectedColor === 'transparent' && (
+            <div className="absolute inset-0 bg-gradient-to-br from-red-500 via-transparent to-red-500 opacity-50 rounded" />
+          )}
+          <span
+            className="block w-4 h-4 rounded border"
+            style={{
+              backgroundColor: selectedColor === 'transparent' ? 'transparent' : selectedColor,
+              border: selectedColor === 'transparent' ? '1px solid #999' : '1px solid rgba(0,0,0,0.2)'
+            }}
+          />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-3 w-64" align="start" sideOffset={5}>
+        <div className="space-y-3">
+          {/* Palette de couleurs */}
+          <div className="grid grid-cols-8 gap-1">
+            {colors.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className={`w-6 h-6 rounded border-2 cursor-pointer transition-all relative ${
+                  selectedColor === color
+                    ? "border-primary ring-2 ring-primary scale-110"
+                    : "border-border hover:border-primary hover:scale-105"
+                }`}
+                style={{ 
+                  backgroundColor: color === 'transparent' ? '#f0f0f0' : color 
+                }}
+                onClick={() => {
+                  if (onColorSelect) onColorSelect(color);
+                  onOpenChange(false);
+                }}
+                title={color === 'transparent' ? 'Transparent' : color}
+              >
+                {color === 'transparent' && (
+                  <div className="absolute inset-0 bg-gradient-to-br from-red-500 via-transparent to-red-500 opacity-50 rounded" />
+                )}
+                {selectedColor === color && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white drop-shadow" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Séparateur */}
+          <div className="border-t border-border"></div>
+
+          {/* Couleur personnalisée */}
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCustomInput(!showCustomInput)}
+              className="w-full text-xs"
+            >
+              {showCustomInput ? 'Masquer' : 'Couleur personnalisée'}
+            </Button>
+            
+            {showCustomInput && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={customColor}
+                    onChange={(e) => handleCustomColorChange(e.target.value)}
+                    className="w-12 h-8 p-0 border-0 rounded cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={customColor}
+                    onChange={(e) => handleCustomColorChange(e.target.value)}
+                    placeholder="#000000"
+                    className="flex-1 text-xs font-mono"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (onColorSelect) onColorSelect(customColor);
+                    onOpenChange(false);
+                  }}
+                  className="w-full text-xs"
+                >
+                  Appliquer
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Aperçu de la couleur sélectionnée */}
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Couleur actuelle:</div>
+            <div 
+              className="w-full h-6 border rounded mt-1 relative"
+              style={{ 
+                backgroundColor: selectedColor === 'transparent' ? '#f0f0f0' : selectedColor 
+              }}
+            >
+              {selectedColor === 'transparent' && (
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500 via-transparent to-red-500 opacity-50 rounded" />
+              )}
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-mono text-white drop-shadow">
+                {selectedColor === 'transparent' ? 'Transparent' : selectedColor}
+              </div>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 // Composant d'éditeur de texte riche simplifié avec markdown visible
-const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus = false, multiline = true, alignment = 'left', onAlignmentChange }) => {
+  const RichTextArea = ({ 
+    value, 
+    onChange, 
+    placeholder, 
+    className = "", 
+    autoFocus = false, 
+    multiline = true, 
+    alignment = 'left', 
+    onAlignmentChange,
+    // NOUVEAU: Props pour les couleurs
+    textColor = '#000000',
+    backgroundColor = 'transparent',
+    onTextColorChange,
+    onBackgroundColorChange
+  }: RichTextAreaProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState(value || '');
-  const [isPreview, setIsPreview] = useState(false);
+  const [isPreview] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiSearchQuery, setEmojiSearchQuery] = useState('');
   const [activeEmojiCategory, setActiveEmojiCategory] = useState('recent');
-  const [textAlignment, setTextAlignment] = useState(alignment || 'left'); // CORRIGÉ: Utiliser la prop alignment
+  const [textAlignment, setTextAlignment] = useState(alignment || 'left');
   
+  // NOUVEAU: États pour les couleurs
+  const [currentTextColor] = useState(textColor);
+  const [currentBackgroundColor] = useState(backgroundColor);
+  const [isTextColorPickerOpen, setIsTextColorPickerOpen] = useState(false);
+  const [isBackgroundColorPickerOpen, setIsBackgroundColorPickerOpen] = useState(false);
+
   // Synchroniser avec la valeur externe - CORRIGÉ
   useEffect(() => {
     if (value !== content) {
@@ -96,7 +299,7 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
       // Headers
       .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
       .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mt-4 mb-2">$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h3>')
       // Bold et Italic
       .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -108,10 +311,10 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
       // Links
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
       // Lists
-      .replace(/^\* (.+)/gim, '<li class="ml-4">• $1</li>')
-      .replace(/^\d+\. (.+)/gim, '<li class="ml-4">$1</li>')
+      .replace(/^\* (.+)/gim, '<div class="flex items-start gap-2 ml-4"><span class="text-primary mt-1">•</span><span>$1</span></div>')
+      .replace(/^\d+\. (.+)/gim, '<div class="flex items-start gap-2 ml-4"><span class="text-primary font-medium">1.</span><span>$1</span></div>')
       // Blockquotes
-      .replace(/^> (.+)/gim, '<blockquote class="border-l-4 border-primary pl-4 italic text-muted-foreground">$1</blockquote>')
+      .replace(/^> (.+)/gim, '<blockquote class="border-l-4 border-primary pl-4 italic text-muted-foreground bg-muted/20 py-2 my-2 rounded-r">$1</blockquote>')
       // Line breaks
       .replace(/\n/g, '<br>');
       
@@ -417,6 +620,8 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
     }
   };
 
+  
+  
   // Fonction pour rechercher des emojis - AMÉLIORÉE
   const searchEmojis = (query: string) => {
     if (!query.trim()) return [];
@@ -438,6 +643,7 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
       "🙏": ["prier", "merci", "s'il vous plait"]
     };
     
+
     // Rechercher dans tous les emojis
     Object.values(emojiCategories).forEach(category => {
       category.emojis.forEach(emoji => {
@@ -481,6 +687,11 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
       onChange(content);
     }
   }, [isPreview, content, onChange]);
+
+  // juste au-dessus du JSX
+  const emojiList: string[] = emojiSearchQuery
+  ? searchEmojis(emojiSearchQuery)
+  : ((emojiCategories as Record<string, { emojis: string[] }>)[activeEmojiCategory]?.emojis ?? []);
 
   return (
     <div className="space-y-2">
@@ -562,6 +773,26 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
           </Button>
         </div>
 
+        {/* NOUVEAU: Couleurs */}
+        <div className="flex items-center gap-1 border-r border-border pr-2">
+          <ColorPicker
+            colors={textColorPalette}
+            selectedColor={currentTextColor}
+            onColorSelect={onTextColorChange}
+            isOpen={isTextColorPickerOpen}
+            onOpenChange={setIsTextColorPickerOpen}
+            title="Couleur du texte"
+          />
+          <ColorPicker
+            colors={backgroundColorPalette}
+            selectedColor={currentBackgroundColor}
+            onColorSelect={onBackgroundColorChange}
+            isOpen={isBackgroundColorPickerOpen}
+            onOpenChange={setIsBackgroundColorPickerOpen}
+            title="Couleur d'arrière-plan"
+          />
+        </div>
+
         {/* Bouton Emojis - COMPLÈTEMENT REFAIT */}
         <div className="flex items-center gap-1 border-r border-border pr-2">
           <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
@@ -606,18 +837,17 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
                 <div className="grid grid-cols-8 gap-1 max-h-64 overflow-y-auto">
                   {(emojiSearchQuery 
                     ? searchEmojis(emojiSearchQuery)
-                    : emojiCategories[activeEmojiCategory]?.emojis || []
-                  ).map((emoji, index) => (
-                    <button
-                      key={`${emoji}-${index}`}
-                      onClick={() => insertEmoji(emoji)}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-muted rounded-md text-xl transition-colors cursor-pointer"
-                      type="button"
-                      title={emoji}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                    : emojiList.map((emoji: string, index: number) => (
+                      <button
+                        key={`${emoji}-${index}`}
+                        onClick={() => insertEmoji(emoji)}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-muted rounded-md text-xl transition-colors cursor-pointer"
+                        type="button"
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    )))}
                 </div>
                 
                 {emojiSearchQuery && searchEmojis(emojiSearchQuery).length === 0 && (
@@ -634,16 +864,6 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
           </Popover>
         </div>
 
-        {/* Toggle preview */}
-        <Button 
-          variant={isPreview ? "default" : "ghost"} 
-          size="sm" 
-          onClick={() => setIsPreview(!isPreview)} 
-          className="h-8 w-8 p-1 cursor-pointer" 
-          title="Aperçu"
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Éditeur / Aperçu */}
@@ -651,23 +871,29 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
         <div 
           ref={previewRef}
           className={`min-h-[100px] w-full border rounded-md p-3 bg-background prose prose-sm max-w-none ${className}`}
-          style={{ textAlign: textAlignment }} // AJOUT: Appliquer l'alignement à l'aperçu
+          style={{ 
+            textAlign: textAlignment as React.CSSProperties['textAlign'],
+            color: currentTextColor !== '#000000' ? currentTextColor : undefined,
+            backgroundColor: currentBackgroundColor !== 'transparent' ? currentBackgroundColor : undefined
+          }}
           dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
         />
       ) : (
         <div className="relative">
           <textarea
             ref={textareaRef}
-            value={content}
+            value={typeof content === "string" ? content : ""}
             onChange={handleChange}
             placeholder={placeholder}
             className={`min-h-[100px] w-full border rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary resize-y bg-background font-mono text-sm ${className}`}
-            style={{ 
-              whiteSpace: "pre-wrap", 
+            style={{
+              whiteSpace: "pre-wrap",
               overflowWrap: "break-word",
               lineHeight: '1.5',
               overflow: 'hidden',
-              textAlign: textAlignment // AJOUT: Appliquer l'alignement au textarea
+              textAlign: textAlignment as React.CSSProperties['textAlign'],
+              color: currentTextColor !== '#000000' ? currentTextColor : undefined,
+              backgroundColor: currentBackgroundColor !== 'transparent' ? currentBackgroundColor : undefined
             }}
             rows={1}
           />
@@ -677,32 +903,57 @@ const RichTextArea = ({ value, onChange, placeholder, className = "", autoFocus 
   );
 };
 
-// Bloc de texte refait avec le nouvel éditeur - CORRECTION pour sauvegarder l'alignement
-const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
+// Bloc de texte refait avec le nouvel éditeur - CORRECTION pour l'aperçu
+const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [content, setContent] = useState(block.content?.text || block.content || '');
-  const [alignment, setAlignment] = useState(block.content?.alignment || 'left'); // AJOUT: État pour l'alignement
+  const [content, setContent] = useState<string>(
+    typeof block.content === 'object' && block.content
+      ? (block.content as Record<string, unknown>).text as string ?? ''
+      : (block.content as string) ?? ''
+  );
+  const [alignment, setAlignment] = useState(block.content?.alignment || 'left');
+  
+  // NOUVEAU: États pour les couleurs
+  const [textColor, setTextColor] = useState(block.content?.textColor || '#000000');
+  const [backgroundColor, setBackgroundColor] = useState(block.content?.backgroundColor || 'transparent');
 
-  // Sauvegarder automatiquement - CORRIGÉ pour inclure l'alignement
+  // Sauvegarder automatiquement - CORRIGÉ pour inclure les couleurs
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
     onChange({ 
       ...block, 
       content: { 
         text: newContent, 
-        alignment: alignment 
+        alignment: alignment,
+        textColor: textColor,
+        backgroundColor: backgroundColor
       } 
     });
   };
 
-  // AJOUT: Gérer les changements d'alignement
-  const handleAlignmentChange = (newAlignment: string) => {
-    setAlignment(newAlignment);
+  // NOUVEAU: Gérer les changements de couleurs
+  const handleTextColorChange = (newColor: string) => {
+    setTextColor(newColor);
     onChange({ 
       ...block, 
       content: { 
         text: content, 
-        alignment: newAlignment 
+        alignment: alignment,
+        textColor: newColor,
+        backgroundColor: backgroundColor
+      } 
+    });
+  };
+
+  const handleBackgroundColorChange = (newColor: string) => {
+    setBackgroundColor(newColor);
+    onChange({ 
+      ...block, 
+      content: { 
+        text: content, 
+        alignment: alignment,
+        textColor: textColor,
+        backgroundColor: newColor
       } 
     });
   };
@@ -712,33 +963,43 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
       ...block, 
       content: { 
         text: content, 
-        alignment: alignment 
+        alignment: alignment,
+        textColor: textColor,
+        backgroundColor: backgroundColor
       } 
     });
     setIsEditing(false);
   };
 
-  // Parser le markdown pour l'affichage - CORRECTION: Vérifier que text est bien une chaîne
+  // Parser le markdown pour l'affichage - CORRECTION COMPLÈTE
   const parseMarkdown = (text: string) => {
     // CORRECTION: S'assurer que text est une chaîne
     if (!text || typeof text !== 'string') return '';
     
     let result = text;
     
-    // Markdown SANS les couleurs
+    // CORRECTION: Parser le markdown correctement avec toutes les fonctionnalités
     result = result
+      // Headers
       .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
       .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mt-4 mb-2">$1</h2>')
       .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>')
+      // Bold et Italic (ordre important)
       .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Strikethrough
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
+      // Code inline
       .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-xs font-mono">$1</code>')
+      // Links
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
-      .replace(/^\* (.+)/gim, '<li class="ml-4">• $1</li>')
-      .replace(/^\d+\. (.+)/gim, '<li class="ml-4">$1</li>')
-      .replace(/^> (.+)/gim, '<blockquote class="border-l-4 border-primary pl-4 italic text-muted-foreground">$1</blockquote>')
+      // Lists (avec puces visuelles)
+      .replace(/^\* (.+)/gim, '<div class="flex items-start gap-2 ml-4"><span class="text-primary mt-1">•</span><span>$1</span></div>')
+      .replace(/^\d+\. (.+)/gim, '<div class="flex items-start gap-2 ml-4"><span class="text-primary font-medium">1.</span><span>$1</span></div>')
+      // Blockquotes
+      .replace(/^> (.+)/gim, '<blockquote class="border-l-4 border-primary pl-4 italic text-muted-foreground bg-muted/20 py-2 my-2 rounded-r">$1</blockquote>')
+      // Line breaks
       .replace(/\n/g, '<br>');
       
     return result;
@@ -747,12 +1008,15 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
   // CORRECTION: Initialiser les états à partir du contenu du bloc
   useEffect(() => {
     if (typeof block.content === 'object' && block.content !== null) {
-      setContent(block.content.text || '');
+      setContent(typeof block.content.text === 'string' ? block.content.text : '');
       setAlignment(block.content.alignment || 'left');
+      setTextColor(block.content.textColor || '#000000');
+      setBackgroundColor(block.content.backgroundColor || 'transparent');
     } else {
-      // CORRECTION: S'assurer que block.content est une chaîne
       setContent(typeof block.content === 'string' ? block.content : '');
       setAlignment('left');
+      setTextColor('#000000');
+      setBackgroundColor('transparent');
     }
   }, [block.content]);
 
@@ -806,13 +1070,28 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
       {isEditing ? (
         <div className="space-y-2">
           <RichTextArea
-            value={content}
+            value={typeof content === "string" ? content : ""}
             onChange={handleContentChange}
             placeholder="Tapez votre texte avec support Markdown..."
             autoFocus={true}
             multiline={true}
-            alignment={alignment}
-            onAlignmentChange={handleAlignmentChange}
+            alignment={typeof alignment === 'string' ? alignment : 'left'}
+            onAlignmentChange={(newAlignment: string) => {
+              setAlignment(newAlignment);
+              onChange({
+                ...block,
+                content: {
+                  text: content,
+                  alignment: newAlignment,
+                  textColor: typeof textColor === 'string' ? textColor : '#000000',
+                  backgroundColor: typeof backgroundColor === 'string' ? backgroundColor : 'transparent'
+                }
+              });
+            }}
+            textColor={typeof textColor === 'string' ? textColor : '#000000'}
+            backgroundColor={typeof backgroundColor === 'string' ? backgroundColor : 'transparent'}
+            onTextColorChange={handleTextColorChange}
+            onBackgroundColorChange={handleBackgroundColorChange}
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} className="cursor-pointer">
@@ -823,11 +1102,15 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
               variant="outline" 
               onClick={() => {
                 if (typeof block.content === 'object' && block.content !== null) {
-                  setContent(block.content.text || '');
+                  setContent(typeof block.content.text === 'string' ? block.content.text : '');
                   setAlignment(block.content.alignment || 'left');
+                  setTextColor(block.content.textColor || '#000000');
+                  setBackgroundColor(block.content.backgroundColor || 'transparent');
                 } else {
                   setContent(typeof block.content === 'string' ? block.content : '');
                   setAlignment('left');
+                  setTextColor('#000000');
+                  setBackgroundColor('transparent');
                 }
                 setIsEditing(false);
               }}
@@ -844,14 +1127,21 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
             setIsEditing(true);
           }}
           className="min-h-[50px] p-4 border border-dashed border-transparent hover:border-border rounded-lg cursor-text transition-colors"
-          style={{ textAlign: alignment }} // AJOUT: Appliquer l'alignement à l'affichage
+          style={{ 
+            textAlign: alignment as React.CSSProperties['textAlign'],
+            color: typeof textColor === 'string' && textColor !== '#000000' ? textColor : undefined,
+            backgroundColor: typeof backgroundColor === 'string' && backgroundColor !== 'transparent' ? backgroundColor : undefined,
+            // NOUVEAU: Ajout d'une bordure subtile si il y a une couleur de fond
+            ...(typeof backgroundColor === 'string' && backgroundColor !== 'transparent' ? {
+              border: '1px solid rgba(0,0,0,0.1)',
+              borderRadius: '8px'
+            } : {})
+          }}
         >
           {content ? (
             <div 
               className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{
-                __html: parseMarkdown(content)
-              }}
+              dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
             />
           ) : (
             <span className="text-muted-foreground">Cliquez pour écrire avec support Markdown...</span>
@@ -862,20 +1152,38 @@ const TextBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp,
   );
 };
 
-// NOUVEAU: Composant pour un bloc Quote séparé
-const QuoteBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
+// CORRECTION: Composant pour un bloc Quote - CORRIGÉ pour éviter [object Object]
+const QuoteBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [content, setContent] = useState(block.content || '');
+  // CORRECTION: Extraire correctement le texte de la citation
+  const [content, setContent] = useState(() => {
+    if (typeof block.content === 'string') {
+      return block.content;
+    }
+    if (typeof block.content === 'object' && block.content !== null && 'text' in block.content) {
+      return typeof block.content.text === 'string' ? block.content.text : '';
+    }
+    return '';
+  });
 
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
-    onChange({ ...block, content: newContent });
+    onChange({ ...block, content: { text: newContent } });
   };
 
   const handleSave = () => {
-    onChange({ ...block, content: content });
+    onChange({ ...block, content: { text: content } });
     setIsEditing(false);
   };
+
+  // CORRECTION: Synchroniser avec le contenu du bloc
+  useEffect(() => {
+    if (typeof block.content === 'string') {
+      setContent(block.content);
+    } else if (typeof block.content === 'object' && block.content !== null && 'text' in block.content) {
+      setContent(typeof block.content.text === 'string' ? block.content.text : '');
+    }
+  }, [block.content]);
 
   return (
     <div className="group relative" data-block-id={block.id}>
@@ -954,14 +1262,291 @@ const QuoteBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
   );
 };
 
-// Composant pour un bloc d'image avec alignement et texte (AMÉLIORÉ)
-const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
+// NOUVEAU: Composant pour un bloc de tableau
+const TableBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
+  const [data, setData] = useState(() => {
+    if (block.content && typeof block.content === 'object') {
+      const headers = Array.isArray(block.content.headers) ? block.content.headers as string[] : ['Colonne 1', 'Colonne 2'];
+      const rows = Array.isArray(block.content.rows) ? block.content.rows as string[][] : [['', ''], ['', '']];
+      return { headers, rows };
+    }
+    return { 
+      headers: ['Colonne 1', 'Colonne 2'], 
+      rows: [['', ''], ['', '']] 
+    };
+  });
+  
+  const [editingCell, setEditingCell] = useState<{row: number, col: number} | null>(null);
+  const [tempCellValue, setTempCellValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Parser markdown simple pour les cellules
+  const parseMarkdown = (text: string) => {
+    if (!text) return text;
+    
+    let result = text;
+    result = result
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/~~(.*?)~~/g, '<del>$1</del>')
+      .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-xs">$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>');
+      
+    return result;
+  };
+
+  const startEditing = (rowIndex: number, colIndex: number, isHeader = false) => {
+    const currentValue = isHeader ? data.headers[colIndex] : data.rows[rowIndex][colIndex];
+    setTempCellValue(currentValue);
+    setEditingCell({ row: isHeader ? -1 : rowIndex, col: colIndex });
+  };
+
+  const saveCell = useCallback(() => {
+    if (!editingCell) return;
+    
+    const newData = { ...data };
+    if (editingCell.row === -1) {
+      newData.headers = [...newData.headers];
+      newData.headers[editingCell.col] = tempCellValue;
+    } else {
+      newData.rows = newData.rows.map((row, index) => 
+        index === editingCell.row 
+          ? row.map((cell, cellIndex) => 
+              cellIndex === editingCell.col ? tempCellValue : cell
+            )
+          : row
+      );
+    }
+    
+    setData(newData);
+    onChange({ ...block, content: newData });
+    setEditingCell(null);
+    setTempCellValue('');
+  }, [editingCell, tempCellValue, data, block, onChange]);
+
+  const handleBlur = useCallback(() => {
+    setTimeout(() => {
+      saveCell();
+    }, 150);
+  }, [saveCell]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      saveCell();
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+      setTempCellValue('');
+    }
+  }, [saveCell]);
+
+  useEffect(() => {
+    if (editingCell && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingCell, inputRef]);
+
+  return (
+    <div className="group relative">
+      {/* Boutons de manipulation du bloc */}
+      <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="flex flex-col gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 cursor-grab"
+          >
+            <GripVertical className="h-3 w-3" />
+          </Button>
+          {canMoveUp && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveUp}
+              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+              title="Monter"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </Button>
+          )}
+          {canMoveDown && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveDown}
+              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+              title="Descendre"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 cursor-pointer">
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      <div className="overflow-x-auto border border-border rounded-lg bg-background p-4">
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>
+              {data.headers.map((header, colIndex) => (
+                <th
+                  key={colIndex}
+                  className="border-b border-border px-4 py-2 bg-muted/30 text-left font-semibold cursor-pointer"
+                  onClick={() => startEditing(-1, colIndex, true)}
+                >
+                  {editingCell && editingCell.row === -1 && editingCell.col === colIndex ? (
+                    <input
+                      ref={inputRef}
+                      value={tempCellValue}
+                      onChange={(e) => setTempCellValue(e.target.value)}
+                      onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
+                      className="border rounded px-2 py-1 text-sm w-full"
+                    />
+                  ) : (
+                    <span dangerouslySetInnerHTML={{ __html: parseMarkdown(header) }} />
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, colIndex) => (
+                  <td
+                    key={colIndex}
+                    className="border-b border-border px-4 py-2 cursor-pointer"
+                    onClick={() => startEditing(rowIndex, colIndex)}
+                  >
+                    {editingCell && editingCell.row === rowIndex && editingCell.col === colIndex ? (
+                      <input
+                        ref={inputRef}
+                        value={tempCellValue}
+                        onChange={(e) => setTempCellValue(e.target.value)}
+                        onBlur={handleBlur}
+                        onKeyDown={handleKeyDown}
+                        className="border rounded px-2 py-1 text-sm w-full"
+                      />
+                    ) : (
+                      <span dangerouslySetInnerHTML={{ __html: parseMarkdown(cell) }} />
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// Composant pour un bloc d'image avec alignement (CORRIGÉ)
+const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [alignment, setAlignment] = useState(block.content?.alignment || 'center');
-  const [wrapText, setWrapText] = useState(block.content?.wrapText || '');
-  const [caption, setCaption] = useState(block.content?.caption || '');
-  const [additionalImages, setAdditionalImages] = useState(block.content?.additionalImages || []);
+  const [wrapText, setWrapText] = useState<string>(String(block.content?.wrapText || ''));
+  const [caption, setCaption] = useState<string>(String(block.content?.caption || ''));
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [rotation, setRotation] = useState(0);
+  const [imageError, setImageError] = useState(false);
+  const [imageSize, setImageSize] = useState({ width: 400, height: 300 });
+  const [showImageOptions, setShowImageOptions] = useState(false);
+  
+  // NOUVEAU: États pour l'ajout d'image par URL
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  
+  type ExtraImg = { src: string; alt?: string; caption?: string; width?: number; height?: number };
+  const [additionalImages, setAdditionalImages] =
+    useState<ExtraImg[]>(Array.isArray(block.content?.additionalImages) ? block.content!.additionalImages as ExtraImg[] : []);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+
+  // CORRECTION: Fonction pour extraire l'URL d'un markdown d'image
+  const extractImageUrl = (content: unknown): string | null => {
+    if (typeof content === 'string') {
+      // Extraire l'URL du format markdown ![alt](url)
+      const markdownMatch = content.match(/!\[[^\]]*\]\(([^)]+)\)/);
+      if (markdownMatch && markdownMatch[1]) {
+        return markdownMatch[1];
+      }
+    }
+    
+    if (typeof content === 'object' && content !== null && 'src' in content) {
+      return typeof content.src === 'string' ? content.src : null;
+    }
+    
+    return null;
+  };
+
+  // CORRECTION: Obtenir l'URL de l'image de manière sécurisée
+  const getImageSrc = (): string | null => {
+    if (block.content?.src && typeof block.content.src === 'string') {
+      return block.content.src;
+    }
+    
+    return extractImageUrl(block.content);
+  };
+
+  // NOUVEAU: Fonction pour ajouter une image par URL
+  const handleImageUrl = () => {
+    if (!imageUrl.trim()) {
+      toast.error("Veuillez entrer une URL valide");
+      return;
+    }
+
+    // Validation basique de l'URL
+    try {
+      new URL(imageUrl);
+    } catch {
+      toast.error("URL invalide");
+      return;
+    }
+
+    const imageSrc = getImageSrc();
+    
+    if (imageSrc) {
+      // Ajouter comme image additionnelle
+      const newAdditionalImages = [...additionalImages, {
+        src: imageUrl,
+        alt: 'Image depuis URL',
+        caption: ''
+      }];
+      setAdditionalImages(newAdditionalImages);
+      onChange({ 
+        ...block, 
+        content: { 
+          ...block.content,
+          additionalImages: newAdditionalImages
+        } 
+      });
+    } else {
+      // Définir comme image principale
+      onChange({ 
+        ...block, 
+        content: { 
+          ...block.content,
+          src: imageUrl, 
+          alt: 'Image depuis URL',
+          alignment,
+          wrapText,
+          caption,
+          width: imageSize.width,
+          height: imageSize.height,
+          additionalImages
+        } 
+      });
+    }
+    
+    setImageUrl('');
+    setShowUrlInput(false);
+    toast.success("Image ajoutée depuis l'URL");
+  };
 
   const handleImageUpload = async (file: File, isAdditional = false) => {
     if (file.size > 8 * 1024 * 1024) {
@@ -980,7 +1565,14 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
           caption: ''
         }];
         setAdditionalImages(newAdditionalImages);
-        updateContent('additionalImages', newAdditionalImages);
+        // CORRECTION: Sauvegarder avec toutes les données existantes
+        onChange({ 
+          ...block, 
+          content: { 
+            ...block.content,
+            additionalImages: newAdditionalImages
+          } 
+        });
       } else {
         onChange({ 
           ...block, 
@@ -991,6 +1583,8 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
             alignment,
             wrapText,
             caption,
+            width: imageSize.width,
+            height: imageSize.height,
             additionalImages
           } 
         });
@@ -1004,7 +1598,7 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
     }
   };
 
-  const updateContent = (key: string, value: Record<string, unknown>) => {
+  const updateContent = (key: string, value: unknown) => {
     const newContent = { 
       ...block.content,
       [key]: value 
@@ -1015,26 +1609,689 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
     });
   };
 
+  // NOUVEAU: Remplacer l'image principale
+  const handleReplaceImage = async (file: File) => {
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("L'image est trop lourde. Maximum 8MB.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const imageUrl = await uploadToDiscord(file);
+      
+      onChange({ 
+        ...block, 
+        content: { 
+          ...block.content,
+          src: imageUrl, 
+          alt: file.name,
+          alignment,
+          wrapText,
+          caption,
+          width: imageSize.width,
+          height: imageSize.height,
+          additionalImages
+        } 
+      });
+      setImageError(false);
+      toast.success("Image remplacée avec succès");
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      toast.error("Erreur lors du remplacement de l'image");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // NOUVEAU: Supprimer une image additionnelle
   const removeAdditionalImage = (index: number) => {
-    const newAdditionalImages = additionalImages.filter((_: Record<string, unknown>, i: number) => i !== index);
+    const newAdditionalImages = additionalImages.filter((_, i) => i !== index);
     setAdditionalImages(newAdditionalImages);
     updateContent('additionalImages', newAdditionalImages);
   };
 
+  // Effet d'initialisation / synchronisation : ne dépendre que de block.content
   useEffect(() => {
-    if (block.content?.alignment !== alignment) {
-      setAlignment(block.content?.alignment || 'center');
+    const bc = block.content as Record<string, unknown> | undefined;
+    if (!bc) return;
+
+    // Mettre à jour uniquement si la valeur diffère (évite boucle)
+    if (typeof bc.alignment === 'string' && bc.alignment !== alignment) {
+      setAlignment(bc.alignment);
     }
-    if (block.content?.wrapText !== wrapText) {
-      setWrapText(block.content?.wrapText || '');
+
+    if (typeof bc.wrapText === 'string' && bc.wrapText !== wrapText) {
+      setWrapText(bc.wrapText);
     }
-    if (block.content?.caption !== caption) {
-      setCaption(block.content?.caption || '');
+
+    if (typeof bc.caption === 'string' && bc.caption !== caption) {
+      setCaption(bc.caption);
     }
-    if (block.content?.additionalImages !== additionalImages) {
-      setAdditionalImages(block.content?.additionalImages || []);
+
+    // AJOUT: Gestion de la taille d'image
+    const newWidth = typeof bc.width === 'number' ? bc.width : 400;
+    const newHeight = typeof bc.height === 'number' ? bc.height : 300;
+    if (newWidth !== imageSize.width || newHeight !== imageSize.height) {
+      setImageSize({ width: newWidth, height: newHeight });
     }
-  }, [block.content, onChange, alignment, wrapText, caption, additionalImages]);
+
+    if (Array.isArray(bc.additionalImages)) {
+      const newImgs = bc.additionalImages as unknown[];
+      const same =
+        newImgs.length === additionalImages.length &&
+        newImgs.every((img, i) => JSON.stringify(img) === JSON.stringify(additionalImages[i]));
+
+      if (!same) {
+        setAdditionalImages(newImgs as ExtraImg[]);
+      }
+    }
+  }, [block.content, additionalImages, alignment, caption, wrapText, imageSize]);
+
+  // NOUVEAU: Composant de visualisation d'image avec zoom
+  const ImageViewer = () => {
+    const imageSrc = getImageSrc();
+    if (!imageSrc) return null;
+
+    const handleDownload = () => {
+      const link = document.createElement('a');
+      link.href = imageSrc;
+      link.download = String(block.content?.alt || 'image');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    return (
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="flex items-center justify-between">
+              <span>Aperçu de l&apos;image</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setZoomLevel(Math.max(25, zoomLevel - 25))}
+                  className="cursor-pointer"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </Button>
+                <span className="text-sm font-mono min-w-[60px] text-center">{zoomLevel}%</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setZoomLevel(Math.min(500, zoomLevel + 25))}
+                  className="cursor-pointer"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                  className="cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setZoomLevel(100);
+                    setRotation(0);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Reset
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex justify-center items-center p-4 overflow-auto max-h-[80vh]">
+            <div
+              style={{
+                transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                transition: 'transform 0.2s ease-in-out'
+              }}
+            >
+              <img
+                src={imageSrc}
+                alt={String(block.content?.alt || 'Image')}
+                className="max-w-none"
+                style={{ 
+                  width: 'auto',
+                  height: 'auto',
+                  maxWidth: 'none',
+                  maxHeight: 'none'
+                }}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+  
+  const imageSrc = getImageSrc();
+
+  return (
+    <div className="group relative">
+      {/* Boutons de manipulation du bloc */}
+      <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="flex flex-col gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 cursor-grab"
+          >
+            <GripVertical className="h-3 w-3" />
+          </Button>
+          {canMoveUp && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveUp}
+              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+              title="Monter"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </Button>
+          )}
+          {canMoveDown && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveDown}
+              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+              title="Descendre"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 cursor-pointer">
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {imageSrc ? (
+          <>
+            {/* Contrôles d'image améliorés */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={alignment === 'left' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setAlignment('left');
+                    updateContent('alignment', 'left');
+                  }}
+                  className="cursor-pointer"
+                >
+                  <AlignLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={alignment === 'center' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setAlignment('center');
+                    updateContent('alignment', 'center');
+                  }}
+                  className="cursor-pointer"
+                >
+                  <AlignCenter className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={alignment === 'right' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setAlignment('right');
+                    updateContent('alignment', 'right');
+                  }}
+                  className="cursor-pointer"
+                >
+                  <AlignRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* NOUVEAU: Options d'image avec ajout par URL */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => replaceInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="cursor-pointer"
+                >
+                  {isUploading ? "Upload..." : "Remplacer"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Fichier
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowUrlInput(!showUrlInput)}
+                  className="cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  URL
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImageOptions(!showImageOptions)}
+                  className="cursor-pointer"
+                >
+                  Options
+                </Button>
+              </div>
+            </div>
+
+            {/* NOUVEAU: Input pour ajouter image par URL */}
+            {showUrlInput && (
+              <div className="p-3 border border-border rounded-lg bg-muted/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://exemple.com/image.jpg"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleImageUrl}
+                    disabled={!imageUrl.trim()}
+                    className="cursor-pointer"
+                  >
+                    Ajouter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowUrlInput(false);
+                      setImageUrl('');
+                    }}
+                    className="cursor-pointer"
+                  >
+                    Annuler
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Entrez l&aposURL complète d&aposune image accessible publiquement
+                </p>
+              </div>
+            )}
+
+            {/* NOUVEAU: Options avancées d'image */}
+            {showImageOptions && (
+              <div className="p-3 border border-border rounded-lg bg-muted/10 space-y-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Largeur:</span>
+                    <Input
+                      type="number"
+                      value={imageSize.width}
+                      onChange={(e) => {
+                        const newWidth = parseInt(e.target.value) || 100;
+                        const aspectRatio = imageSize.height / imageSize.width;
+                        const newHeight = Math.round(newWidth * aspectRatio);
+                        setImageSize({ width: newWidth, height: newHeight });
+                        updateContent('width', newWidth);
+                        // updateContent('height', newHeight);
+                      }}
+                      className="w-20 text-sm"
+                      min="100"
+                      max="1000"
+                    />
+                    <span className="text-xs text-muted-foreground">px</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Hauteur:</span>
+                    <Input
+                      type="number"
+                      value={imageSize.height}
+                      onChange={(e) => {
+                        const newHeight = parseInt(e.target.value) || 75;
+                        const aspectRatio = imageSize.width / imageSize.height;
+                        const newWidth = Math.round(newHeight * aspectRatio);
+                        setImageSize({ width: newWidth, height: newHeight });
+                        updateContent('width', newWidth);
+                        updateContent('height', newHeight);
+                      }}
+                      className="w-20 text-sm"
+                      min="75"
+                      max="1000"
+                    />
+                    <span className="text-xs text-muted-foreground">px</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setImageSize({ width: 400, height: 300 });
+                      updateContent('width', 400);
+                      updateContent('height', 300);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Container d'image */}
+            <div className={`${
+              alignment === 'center' ? 'space-y-4' : 
+              alignment === 'left' ? 'flex gap-4 items-start' :
+              'flex gap-4 items-start flex-row-reverse'
+            }`}>
+              {/* Image principale sans handles de redimensionnement */}
+              <div 
+                className={`relative flex-shrink-0 ${
+                  alignment === 'center' ? 'w-full flex justify-center' : 
+                  alignment === 'left' ? 'justify-start' :
+                  'justify-end'
+                }`}
+              >
+                <div 
+                  className="relative group/image border border-border rounded-lg overflow-hidden"
+                  style={{ 
+                    width: `${imageSize.width}px`, 
+                    height: `${imageSize.height}px`,
+                    minWidth: '100px',
+                    minHeight: '75px'
+                  }}
+                >
+                  {/* Image */}
+                  {!imageError ? (
+                    <img
+                      src={imageSrc}
+                      alt={String(block.content?.alt || 'Image')}
+                      className="w-full h-full object-cover cursor-pointer transition-transform hover:scale-[1.02]"
+                      onError={() => setImageError(true)}
+                      onLoad={() => setImageError(false)}
+                      onClick={() => setImageViewerOpen(true)}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted border border-border rounded flex items-center justify-center">
+                      <div className="text-center text-muted-foreground">
+                        <ImageIcon className="h-8 w-8 mx-auto mb-2" />
+                        <span className="text-sm">Erreur de chargement</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Overlay de zoom */}
+                  <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover/image:opacity-100 transition-opacity bg-white/90 dark:bg-black/90 rounded-full p-2">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Texte d'accompagnement */}
+              {alignment !== 'center' && (
+                <div className="flex-1 min-w-0">
+                  <Input
+                    value={wrapText}
+                    onChange={(e) => {
+                      setWrapText(e.target.value);
+                      updateContent('wrapText', e.target.value);
+                    }}
+                    placeholder="Texte d'accompagnement..."
+                    className="border-none shadow-none text-sm w-full"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* NOUVEAU: Images additionnelles */}
+            {additionalImages.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Images additionnelles:</div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {additionalImages.map((img, index) => (
+                    <div key={index} className="relative group/additional">
+                      <img
+                        src={img.src}
+                        alt={img.alt || `Image ${index + 1}`}
+                        className="w-full h-24 object-cover rounded border border-border cursor-pointer"
+                        onClick={() => setImageViewerOpen(true)}
+                      />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeAdditionalImage(index)}
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 opacity-0 group-hover/additional:opacity-100 transition-opacity cursor-pointer"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Légende de l'image */}
+            <Input
+              value={caption}
+              onChange={(e) => {
+                setCaption(e.target.value);
+                updateContent('caption', e.target.value);
+              }}
+              placeholder="Légende de l'image..."
+              className="text-center text-sm text-muted-foreground border-none shadow-none"
+            />
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+            >
+              {isUploading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-muted-foreground">Upload en cours...</span>
+                </div>
+              ) : (
+                <>
+                  <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Cliquez pour ajouter une image</p>
+                </>
+              )}
+            </div>
+            
+            {/* NOUVEAU: Option pour ajouter par URL quand aucune image */}
+            <div className="text-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUrlInput(!showUrlInput)}
+                className="cursor-pointer"
+              >
+                Ou ajouter depuis une URL
+              </Button>
+            </div>
+            
+            {/* NOUVEAU: Input URL pour image vide */}
+            {showUrlInput && (
+              <div className="p-3 border border-border rounded-lg bg-muted/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://exemple.com/image.jpg"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleImageUrl}
+                    disabled={!imageUrl.trim()}
+                    className="cursor-pointer"
+                  >
+                    Ajouter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowUrlInput(false);
+                      setImageUrl('');
+                    }}
+                    className="cursor-pointer"
+                  >
+                    Annuler
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Entrez l&aposURL complète d&aposune image accessible publiquement
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Input pour ajouter une image */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              if (imageSrc) {
+                handleImageUpload(file, true); // Ajouter comme image additionnelle
+              } else {
+                handleImageUpload(file, false); // Ajouter comme image principale
+              }
+            }
+          }}
+          className="hidden"
+        />
+        
+        {/* Input pour remplacer l'image */}
+        <input
+          ref={replaceInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleReplaceImage(file);
+          }}
+          className="hidden"
+        />
+      </div>
+
+      <ImageViewer />
+    </div>
+  );
+};
+
+// NOUVEAU: Composant pour un bloc de fichier
+const FileBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [fileName, setFileName] = useState<string>(String(block.content?.fileName || ''));
+  const [fileSize, setFileSize] = useState<number>(Number(block.content?.fileSize || 0));
+  const [fileType, setFileType] = useState<string>(String(block.content?.fileType || ''));
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // CORRECTION: Synchroniser les états avec le contenu du bloc
+  useEffect(() => {
+    if (block.content) {
+      setFileName(String(block.content.fileName || ''));
+      setFileSize(Number(block.content.fileSize || 0));
+      setFileType(String(block.content.fileType || ''));
+    }
+  }, [block.content]);
+
+  const getFileSrc = (): string | null => {
+    if (block.content?.src && typeof block.content.src === 'string') {
+      return block.content.src;
+    }
+    return null;
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return '🖼️';
+    if (type.startsWith('video/')) return '🎥';
+    if (type.startsWith('audio/')) return '🎵';
+    if (type.includes('pdf')) return '📄';
+    if (type.includes('word')) return '📝';
+    if (type.includes('excel') || type.includes('sheet')) return '📊';
+    if (type.includes('zip') || type.includes('rar')) return '📦';
+    return '📎';
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("Le fichier est trop lourd. Maximum 25MB.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileUrl = await uploadToDiscord(file);
+      
+      setFileName(file.name);
+      setFileSize(file.size);
+      setFileType(file.type);
+      
+      // CORRECTION: S'assurer que toutes les données sont sauvegardées
+      onChange({ 
+        ...block, 
+        content: { 
+          src: fileUrl,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type || 'application/octet-stream'
+        } 
+      });
+      
+      toast.success("Fichier ajouté avec succès");
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      toast.error("Erreur lors de l'upload du fichier");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const fileSrc = getFileSrc();
 
   return (
     <div className="group relative">
@@ -1073,216 +2330,39 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
       </div>
 
       <div className="space-y-3">
-        {block.content?.src ? (
-          <>
-            {/* Contrôles d'alignement */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Alignement:</span>
-              <div className="flex gap-1">
+        {fileSrc ? (
+          <div className="border border-border rounded-lg p-4 bg-background">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">
+                {getFileIcon(fileType)}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-foreground">{fileName}</h4>
+                <p className="text-sm text-muted-foreground">
+                  {formatFileSize(fileSize)} • {fileType || 'Type inconnu'}
+                </p>
+              </div>
+              <div className="flex gap-2">
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant={alignment === 'left' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setAlignment('left');
-                    updateContent('alignment', 'left');
-                  }}
+                  onClick={() => window.open(fileSrc, '_blank')}
                   className="cursor-pointer"
                 >
-                  <AlignLeft className="h-3 w-3" />
+                  Ouvrir
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant={alignment === 'center' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setAlignment('center');
-                    updateContent('alignment', 'center');
-                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
                   className="cursor-pointer"
                 >
-                  <AlignCenter className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={alignment === 'right' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setAlignment('right');
-                    updateContent('alignment', 'right');
-                  }}
-                  className="cursor-pointer"
-                >
-                  <AlignRight className="h-3 w-3" />
+                  {isUploading ? "Upload..." : "Remplacer"}
                 </Button>
               </div>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => document.getElementById('additionalImageInput')?.click()}
-                disabled={isUploading}
-                className="cursor-pointer ml-auto"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Ajouter une image
-              </Button>
             </div>
-
-            {/* Container d'image avec texte selon l'alignement */}
-            <div className={`${
-              alignment === 'center' ? 'space-y-4' : 'flex gap-4 items-start'
-            }`}>
-              {alignment === 'left' && (
-                <>
-                  <div className="flex-shrink-0 space-y-2">
-                    <Image 
-                      src={block.content.src} 
-                      alt={block.content.alt || ''} 
-                      className="rounded-lg max-h-64 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
-                    />
-                    {/* Images additionnelles */}
-                    {additionalImages.map((img: Record<string, unknown>, index: number) => (
-                      <div key={index} className="relative group/img">
-                        <Image 
-                          src={img.src} 
-                          alt={img.alt || ''} 
-                          className="rounded-lg max-h-48 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
-                        />
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 cursor-pointer"
-                          onClick={() => removeAdditionalImage(index)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Textarea
-                      value={wrapText}
-                      onChange={(e) => {
-                        setWrapText(e.target.value);
-                        updateContent('wrapText', e.target.value);
-                      }}
-                      placeholder="Ajoutez du texte à côté de l'image..."
-                      className="min-h-[200px] resize-none"
-                    />
-                  </div>
-                </>
-              )}
-
-              {alignment === 'right' && (
-                <>
-                  <div className="flex-1 min-w-0">
-                    <Textarea
-                      value={wrapText}
-                      onChange={(e) => {
-                        setWrapText(e.target.value);
-                        updateContent('wrapText', e.target.value);
-                      }}
-                      placeholder="Ajoutez du texte à côté de l'image..."
-                      className="min-h-[200px] resize-none"
-                    />
-                  </div>
-                  <div className="flex-shrink-0 space-y-2">
-                    <Image 
-                      src={block.content.src} 
-                      alt={block.content.alt || ''} 
-                      className="rounded-lg max-h-64 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
-                    />
-                    {/* Images additionnelles */}
-                    {additionalImages.map((img: Record<string, unknown>, index: number) => (
-                      <div key={index} className="relative group/img">
-                        <Image 
-                          src={img.src} 
-                          alt={img.alt || ''} 
-                          className="rounded-lg max-h-48 max-w-sm shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
-                        />
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 cursor-pointer"
-                          onClick={() => removeAdditionalImage(index)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {alignment === 'center' && (
-                <div className="text-center space-y-4">
-                  <Image 
-                    src={block.content.src} 
-                    alt={block.content.alt || ''} 
-                    className="rounded-lg max-h-96 shadow-lg border border-border hover:shadow-xl transition-shadow duration-300 mx-auto"
-                  />
-                  
-                  {/* Images additionnelles en grille */}
-                  {additionalImages.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-w-2xl mx-auto">
-                      {additionalImages.map((img: Record<string, unknown>, index: number) => (
-                        <div key={index} className="relative group/img">
-                          <Image 
-                            src={img.src} 
-                            alt={img.alt || ''} 
-                            className="rounded-lg max-h-48 w-full object-cover shadow-lg border border-border hover:shadow-xl transition-shadow duration-300"
-                          />
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 cursor-pointer"
-                            onClick={() => removeAdditionalImage(index)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {wrapText && (
-                    <div className="w-full">
-                      <Textarea
-                        value={wrapText}
-                        onChange={(e) => {
-                          setWrapText(e.target.value);
-                          updateContent('wrapText', e.target.value);
-                        }}
-                        placeholder="Texte sous l'image..."
-                        className="min-h-[100px] resize-none"
-                      />
-                    </div>
-                  )}
-                  {!wrapText && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setWrapText('Ajoutez du texte...');
-                        updateContent('wrapText', 'Ajoutez du texte...');
-                      }}
-                      className="cursor-pointer"
-                    >
-                      Ajouter du texte
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <Input
-              value={caption}
-              onChange={(e) => {
-                setCaption(e.target.value);
-                updateContent('caption', e.target.value);
-              }}
-              placeholder="Légende de l'image..."
-              className="text-center text-sm text-muted-foreground border-none shadow-none"
-            />
-          </>
+          </div>
         ) : (
           <div 
             onClick={() => fileInputRef.current?.click()}
@@ -1291,12 +2371,13 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
             {isUploading ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <span>Upload en cours...</span>
+                <span className="text-sm text-muted-foreground">Upload en cours...</span>
               </div>
             ) : (
               <>
-                <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground" alt={''} />
-                <p className="text-sm text-muted-foreground">Cliquez pour ajouter une image</p>
+                <div className="text-4xl mb-2">📎</div>
+                <p className="text-sm text-muted-foreground">Cliquez pour ajouter un fichier</p>
+                <p className="text-xs text-muted-foreground mt-1">Vidéos, audios, documents... (Max 25MB)</p>
               </>
             )}
           </div>
@@ -1305,21 +2386,9 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleImageUpload(file, false);
-          }}
-          className="hidden"
-        />
-        
-        <input
-          id="additionalImageInput"
-          type="file"
-          accept="image/*"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleImageUpload(file, true);
+            if (file) handleFileUpload(file);
           }}
           className="hidden"
         />
@@ -1329,16 +2398,18 @@ const ImageBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp
 };
 
 // CodeBlock avec éditeur amélioré
-const CodeBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
-  const [content, setContent] = useState(block.content?.code || '');
-  const [language, setLanguage] = useState(block.content?.language || 'javascript');
+const CodeBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
+  type CodeContent = { code?: string; language?: string } | null;
+  const cc = block.content as CodeContent;
+  const [content, setContent] = useState<string>(cc?.code ?? "");
+  const [language, setLanguage] = useState<string>(cc?.language ?? "javascript");
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSave = () => {
-    onChange({ ...block, content: { code: content, language } });
+    onChange({ ...block, content: toContent({ code: content, language }) });
     setIsEditing(false);
   };
-
+  
   const languages = [
     'javascript', 'typescript', 'python', 'java', 'html', 'css', 'json', 'markdown', 'bash', 'sql', 'php', 'go', 'rust', 'cpp'
   ];
@@ -1350,7 +2421,29 @@ const CodeBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 cursor-grab">
             <GripVertical className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10">
+          {canMoveUp && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveUp}
+              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+              title="Monter"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </Button>
+          )}
+          {canMoveDown && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveDown}
+              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+              title="Descendre"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 cursor-pointer">
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
@@ -1362,13 +2455,13 @@ const CodeBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              {languages.map(lang => (
-                <SelectItem key={lang} value={lang}>
-                  {lang.toUpperCase()}
-                </SelectItem>
-              ))}
-            </SelectContent>
+              <SelectContent>
+                {languages.map((lang) => (
+                  <SelectItem key={lang} value={lang}>
+                    {lang.toUpperCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
           </Select>
           <textarea
             value={content}
@@ -1389,7 +2482,6 @@ const CodeBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
       ) : (
         <div onClick={() => setIsEditing(true)} className="cursor-text">
           <div className="bg-muted border border-border rounded-md overflow-hidden my-4">
-            {/* En-tête avec le langage */}
             <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {language}
@@ -1408,9 +2500,10 @@ const CodeBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
 };
 
 // Composant pour un bloc de titre
-const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
-  const [content, setContent] = useState(block.content?.text || '');
-  const [level, setLevel] = useState(block.content?.level || 1);
+const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
+  const hc = block.content as { text?: string; level?: number } | null;
+  const [content, setContent] = useState<string>(hc?.text ?? "");
+  const [level, setLevel] = useState<number>(hc?.level ?? 1);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (newContent: string, newLevel?: number) => {
@@ -1436,11 +2529,7 @@ const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMove
     <div className="group relative">
       <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <div className="flex flex-col gap-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-6 w-6 p-0 cursor-grab"
-          >
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 cursor-grab">
             <GripVertical className="h-3 w-3" />
           </Button>
           {canMoveUp && (
@@ -1478,7 +2567,9 @@ const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMove
           </SelectTrigger>
           <SelectContent>
             {[1,2,3,4,5,6].map(h => (
-              <SelectItem key={h} value={h.toString()}>H{h}</SelectItem>
+              <SelectItem key={h} value={h.toString()}>
+                {h}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1494,374 +2585,8 @@ const HeadingBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMove
   );
 };
 
-// Composant pour une liste à cocher avec checkbox stylisée
-const ChecklistBlock = ({ block, onChange, onDelete }: Record<string, unknown>) => {
-  const [items, setItems] = useState(block.content || [{ text: '', checked: false }]);
-
-  const updateItem = (index: number, text: string, checked?: boolean) => {
-    const newItems = [...items];
-    newItems[index] = { 
-      text, 
-      checked: checked !== undefined ? checked : newItems[index].checked 
-    };
-    setItems(newItems);
-    onChange({ ...block, content: newItems });
-  };
-
-  const addItem = () => {
-    const newItems = [...items, { text: '', checked: false }];
-    setItems(newItems);
-    onChange({ ...block, content: newItems });
-  };
-
-  const removeItem = (index: number) => {
-    if (items.length > 1) {
-      const newItems = items.filter((_: Record<string, unknown>, i: number) => i !== index);
-      setItems(newItems);
-      onChange({ ...block, content: newItems });
-    }
-  };
-
-  return (
-    <div className="group relative">
-      <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <div className="flex flex-col gap-1">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 cursor-grab">
-            <GripVertical className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10">
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {items.map((item: Record<string, unknown>, index: number) => (
-          <div key={index} className="flex items-center gap-3 group/item">
-            {/* Checkbox stylisée */}
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={item.checked}
-                onChange={(e) => updateItem(index, item.text, e.target.checked)}
-                className="peer h-5 w-5 rounded border-2 border-border bg-background checked:bg-primary checked:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all"
-              />
-              <svg
-                className="absolute top-0.5 left-0.5 h-3 w-3 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <Input
-              value={item.text}
-              onChange={(e) => updateItem(index, e.target.value)}
-              placeholder="Élément de la liste..."
-              className={`flex-1 border-none shadow-none focus-visible:ring-0 ${
-                item.checked ? 'line-through text-muted-foreground' : ''
-              }`}
-            />
-            {items.length > 1 && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => removeItem(index)}
-                className="opacity-0 group-hover/item:opacity-100 h-6 w-6 p-0 text-destructive cursor-pointer"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-        ))}
-        <Button size="sm" variant="outline" onClick={addItem} className="w-full cursor-pointer">
-          <Plus className="h-3 w-3 mr-1" />
-          Ajouter un élément
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-// Mise à jour du TableBlock avec sauvegarde automatique
-const TableBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
-  const [data, setData] = useState(block.content || { 
-    headers: ['Colonne 1', 'Colonne 2'], 
-    rows: [['', ''], ['', '']] 
-  });
-  const [editingCell, setEditingCell] = useState<{row: number, col: number} | null>(null);
-  const [tempCellValue, setTempCellValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Parser markdown simple pour les cellules - SUPPRESSION des couleurs
-  const parseMarkdown = (text: string) => {
-    if (!text) return text;
-    
-    let result = text;
-    
-    // Markdown SANS les couleurs
-    result = result
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/~~(.*?)~~/g, '<del>$1</del>')
-      .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-xs">$1</code>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>');
-      
-    return result;
-  };
-
-  // MODIFICATION: Démarrer l'édition d'une cellule
-  const startEditing = (rowIndex: number, colIndex: number, isHeader = false) => {
-    const currentValue = isHeader ? data.headers[colIndex] : data.rows[rowIndex][colIndex];
-    setTempCellValue(currentValue);
-    setEditingCell({ row: isHeader ? -1 : rowIndex, col: colIndex });
-  };
-
-  // AJOUT: Sauvegarder automatiquement les modifications
-  const saveCell = useCallback(() => {
-    if (!editingCell) return;
-    
-    const newData = { ...data };
-    if (editingCell.row === -1) {
-      // En-tête
-      newData.headers[editingCell.col] = tempCellValue;
-    } else {
-      // Cellule normale
-      newData.rows[editingCell.row][editingCell.col] = tempCellValue;
-    }
-    
-    setData(newData);
-    onChange({ ...block, content: newData });
-    setEditingCell(null);
-    setTempCellValue('');
-  }, [editingCell, tempCellValue, data, block, onChange]);
-
-  // AJOUT: Gérer la perte de focus pour sauvegarder
-  const handleBlur = useCallback(() => {
-    // Petit délai pour permettre aux clics sur d'autres éléments de se déclencher
-    setTimeout(() => {
-      saveCell();
-    }, 150);
-  }, [saveCell]);
-
-  // AJOUT: Gérer les touches clavier
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      saveCell();
-    } else if (e.key === 'Escape') {
-      setEditingCell(null);
-      setTempCellValue('');
-    }
-  }, [saveCell]);
-
-  // AJOUT: Auto-focus quand on commence à éditer
-  useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingCell]);
-
-  const addRow = () => {
-    const newData = { ...data };
-    newData.rows.push(new Array(data.headers.length).fill(''));
-    setData(newData);
-    onChange({ ...block, content: newData });
-  };
-
-  const addColumn = () => {
-    const newData = { ...data };
-    newData.headers.push(`Colonne ${newData.headers.length + 1}`);
-    newData.rows = newData.rows.map(row => [...row, '']);
-    setData(newData);
-    onChange({ ...block, content: newData });
-  };
-
-  const removeRow = (index: number) => {
-    if (data.rows.length > 1) {
-      const newData = { ...data };
-      newData.rows.splice(index, 1);
-      setData(newData);
-      onChange({ ...block, content: newData });
-    }
-  };
-
-  const removeColumn = (index: number) => {
-    if (data.headers.length > 1) {
-      const newData = { ...data };
-      newData.headers.splice(index, 1);
-      newData.rows = newData.rows.map(row => {
-        const newRow = [...row];
-        newRow.splice(index, 1);
-        return newRow;
-      });
-      setData(newData);
-      onChange({ ...block, content: newData });
-    }
-  };
-
-  return (
-    <div className="group relative">
-      <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <div className="flex flex-col gap-1">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 cursor-grab">
-            <GripVertical className="h-3 w-3" />
-          </Button>
-          {canMoveUp && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onMoveUp}
-              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
-              title="Monter"
-            >
-              <ChevronUp className="h-3 w-3" />
-            </Button>
-          )}
-          {canMoveDown && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onMoveDown}
-              className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
-              title="Descendre"
-            >
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 cursor-pointer">
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={addRow} className="cursor-pointer">
-            <Plus className="h-3 w-3 mr-1" />
-            Ligne
-          </Button>
-          <Button size="sm" variant="outline" onClick={addColumn} className="cursor-pointer">
-            <Plus className="h-3 w-3 mr-1" />
-            Colonne
-          </Button>
-        </div>
-        
-        {/* Tableau avec sauvegarde automatique */}
-        <div className="w-full overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-muted/50 border-b border-border">
-                {data.headers.map((header: string, colIndex: number) => (
-                  <th key={colIndex} className="relative group/cell border-r border-border last:border-r-0">
-                    {editingCell?.row === -1 && editingCell?.col === colIndex ? (
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={tempCellValue}
-                        onChange={(e) => setTempCellValue(e.target.value)}
-                        onBlur={handleBlur}
-                        onKeyDown={handleKeyDown}
-                        className="w-full px-4 py-3 bg-transparent border-none outline-none font-semibold"
-                        placeholder="En-tête..."
-                      />
-                    ) : (
-                      <div
-                        onClick={() => startEditing(-1, colIndex, true)}
-                        className="px-4 py-3 font-semibold cursor-text min-h-[40px] flex items-center hover:bg-muted/30 transition-colors"
-                        dangerouslySetInnerHTML={{ __html: parseMarkdown(header) }}
-                      />
-                    )}
-                    {data.headers.length > 1 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeColumn(colIndex)}
-                        className="absolute -top-2 -right-2 h-5 w-5 p-0 opacity-0 group-hover/cell:opacity-100 transition-opacity bg-destructive text-destructive-foreground hover:bg-destructive/80 z-10 cursor-pointer"
-                      >
-                        <Trash2 className="h-2 w-2" />
-                      </Button>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row: string[], rowIndex: number) => (
-                <tr key={rowIndex} className="group/row hover:bg-muted/20 border-b border-border last:border-b-0">
-                  {row.map((cell: string, colIndex: number) => (
-                    <td key={colIndex} className="border-r border-border last:border-r-0 relative">
-                      {editingCell?.row === rowIndex && editingCell?.col === colIndex ? (
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          value={tempCellValue}
-                          onChange={(e) => setTempCellValue(e.target.value)}
-                          onBlur={handleBlur}
-                          onKeyDown={handleKeyDown}
-                          className="w-full px-4 py-3 bg-transparent border-none outline-none"
-                          placeholder="..."
-                        />
-                      ) : (
-                        <div
-                          onClick={() => startEditing(rowIndex, colIndex)}
-                          className="px-4 py-3 cursor-text min-h-[40px] flex items-center hover:bg-muted/30 transition-colors"
-                          dangerouslySetInnerHTML={{ __html: parseMarkdown(cell) }}
-                        />
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-
-              {/* Ligne pour ajouter une nouvelle ligne */}
-              <tr>
-                <td colSpan={data.headers.length} className="border-t border-border">
-                  <Button
-                    onClick={addRow}
-                    variant="outline"
-                    size="sm"
-                    className="w-full h-10 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter une ligne
-                  </Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          
-          {/* Boutons de suppression de ligne */}
-          {data.rows.length > 1 && (
-            <div className="bg-muted/10 border-t border-border p-2">
-              <div className="flex gap-1 flex-wrap">
-                {data.rows.map((_, rowIndex) => (
-                  <Button
-                    key={`delete-row-${rowIndex}`}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => removeRow(rowIndex)}
-                    className="h-6 px-2 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground cursor-pointer"
-                  >
-                    Supprimer ligne {rowIndex + 1}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Composant pour un séparateur
-const DividerBlock = ({ onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
+const DividerBlock = ({ onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
   return (
     <div className="group relative">
       <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -1869,9 +2594,8 @@ const DividerBlock = ({ onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 cursor-grab active:cursor-grabbing hover:bg-accent"
+            className="h-6 w-6 p-0 cursor-grab"
             title="Déplacer"
-            draggable
           >
             <GripVertical className="h-3 w-3" />
           </Button>
@@ -1901,7 +2625,8 @@ const DividerBlock = ({ onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 cursor-pointer"
+            className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+            title="Supprimer"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -1913,9 +2638,8 @@ const DividerBlock = ({ onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }
   );
 };
 
-// Corrigé: Nouveau composant pour le bloc d'espacement (correction du problème [object Object])
-const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: Record<string, unknown>) => {
-  // Assurer que height soit initialisé comme un nombre
+// Composant pour le bloc d'espacement
+const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
   const initialHeight = typeof block.content === 'object' && block.content !== null && typeof block.content.height === 'number' 
     ? block.content.height 
     : 40;
@@ -1926,7 +2650,6 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
     if (Array.isArray(newHeight) && newHeight.length > 0) {
       const value = newHeight[0];
       setHeight(value);
-      // S'assurer que la valeur passée est un objet avec une propriété height de type number
       onChange({ ...block, content: { height: value } });
     }
   };
@@ -1942,13 +2665,7 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
     <div className="group relative">
       <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <div className="flex flex-col gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 cursor-grab"
-            title="Déplacer"
-            draggable
-          >
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 cursor-grab">
             <GripVertical className="h-3 w-3" />
           </Button>
           {canMoveUp && (
@@ -1977,7 +2694,7 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 cursor-pointer"
+            className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -2001,7 +2718,6 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
                   className="cursor-pointer"
                 >
                   {size.label}
-               
                 </Button>
               ))}
             </div>
@@ -2017,7 +2733,6 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
             />
           </div>
           
-          {/* Aperçu visuel de l'espacement */}
           <div className="relative w-full bg-muted/20 rounded-md">
             <div 
               className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs"
@@ -2035,44 +2750,52 @@ const SpacerBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveU
 
 // Composant principal BlockEditor - Suppression du système global de toolbar
 export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
+  const [isAddingBlock, setIsAddingBlock] = useState(false);
   
-  // SUPPRESSION des états pour la toolbar globale qui causent des problèmes
-  // Les sélections seront traitées uniquement dans RichTextArea
-  
-  const addBlock = (type: Block['type'], afterIndex?: number) => {
-    const newBlock: Block = {
-      id: Date.now().toString(),
-      type,
-      content: getDefaultContent(type),
-      order: afterIndex !== undefined ? afterIndex + 1 : blocks.length
-    };
+  const addBlock = useCallback(async (type: Block['type'], afterIndex?: number) => {
+    if (isAddingBlock) return; // Éviter les ajouts multiples
+    
+    setIsAddingBlock(true);
+    
+    try {
+      const newBlock: Block = {
+        id: Date.now().toString(),
+        type,
+        content: toContent(getDefaultContent(type)),
+        order: afterIndex !== undefined ? afterIndex + 1 : blocks.length
+      };
 
-    const newBlocks = [...blocks];
-    if (afterIndex !== undefined) {
-      newBlocks.splice(afterIndex + 1, 0, newBlock);
-      // Réajuster les ordres
-      newBlocks.forEach((block, index) => {
-        block.order = index;
-      });
-    } else {
-      newBlocks.push(newBlock);
+      const newBlocks = [...blocks];
+      if (afterIndex !== undefined) {
+        newBlocks.splice(afterIndex + 1, 0, newBlock);
+        // Réajuster les ordres
+        newBlocks.forEach((block, index) => {
+          block.order = index;
+        });
+      } else {
+        newBlocks.push(newBlock);
+      }
+
+      onChange(newBlocks);
+    } finally {
+      // Permettre un nouvel ajout après un délai
+      setTimeout(() => setIsAddingBlock(false), 1000);
     }
-
-    onChange(newBlocks);
-  };
+  }, [blocks, onChange, isAddingBlock]);
 
   const getDefaultContent = (type: Block['type']) => {
     switch (type) {
       case 'heading': return { text: '', level: 1 };
       case 'table': return { headers: ['Colonne 1', 'Colonne 2'], rows: [['', ''], ['', '']] };
-      case 'checklist': return [{ text: '', checked: false }];
+      case 'checklist': return { checklistItems: [{ text: '', checked: false }], showProgress: true };
       case 'list': return [''];
-      case 'quote': return '';
+      case 'quote': return { text: '' };
       case 'code': return { code: '', language: 'javascript' };
-      case 'image': return { src: '', alt: '', caption: '' };
-      case 'divider': return null;
+      case 'image': return { src: '', alt: '', caption: '', additionalImages: [] };
+      case 'file': return { src: '', fileName: '', fileSize: 0, fileType: '' };
+      case 'divider': return {};
       case 'spacer': return { height: 40 };
-      default: return { text: '', alignment: 'left' }; // CORRECTION: Contenu par défaut avec alignement
+      default: return { text: '', alignment: 'left', textColor: '#000000', backgroundColor: 'transparent' };
     }
   };
 
@@ -2108,6 +2831,375 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
     onChange(newBlocks);
   };
 
+  // CORRECTION COMPLÈTE: ChecklistBlock - FIX définitif de la perte de focus
+  const ChecklistBlock = ({ block, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: BlockProps) => {
+    type ChecklistItem = { text: string; checked: boolean };
+
+    // CORRECTION: Initialiser correctement depuis le contenu du bloc
+    const [items, setItems] = useState<ChecklistItem[]>(() => {
+      // Vérifier le nouveau format avec checklistItems
+      if (block.content && typeof block.content === 'object' && 'checklistItems' in block.content) {
+        const checklistItems = block.content.checklistItems;
+        if (Array.isArray(checklistItems)) {
+          return checklistItems.map(item => ({
+            text: typeof item === 'object' && item !== null && 'text' in item ? String(item.text || '') : String(item || ''),
+            checked: typeof item === 'object' && item !== null && 'checked' in item ? Boolean(item.checked) : false
+          }));
+        }
+      }
+      
+      // FALLBACK: Ancien format avec array direct
+      if (Array.isArray(block.content)) {
+        return block.content.map(item => ({
+          text: typeof item === 'object' && item !== null && 'text' in item ? String(item.text || '') : String(item || ''),
+          checked: typeof item === 'object' && item !== null && 'checked' in item ? Boolean(item.checked) : false
+        }));
+      }
+      
+      return [{ text: '', checked: false }];
+    });
+
+    // État pour afficher/masquer la barre de progression
+    const [showProgress, setShowProgress] = useState(() => {
+      if (block.content && typeof block.content === 'object' && 'showProgress' in block.content) {
+        return block.content.showProgress !== false;
+      }
+      return true;
+    });
+
+    // NOUVEAU: Timer pour sauvegarder seulement après inactivité complète
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isTypingRef = useRef(false);
+
+    // CORRECTION FINALE: Sauvegarder seulement quand l'utilisateur arrête de taper
+    const debouncedSave = useCallback((newItems: ChecklistItem[]) => {
+      // Annuler le timer précédent
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      
+      // Programmer la sauvegarde après 1 seconde d'inactivité COMPLÈTE
+      saveTimeoutRef.current = setTimeout(() => {
+        isTypingRef.current = false;
+        onChange({ 
+          ...block, 
+          content: { 
+            checklistItems: newItems,
+            showProgress: showProgress
+          } 
+        });
+      }, 1000);
+    }, [block, onChange, showProgress]);
+
+    // CORRECTION: Fonction pour mettre à jour SEULEMENT l'état local pendant la frappe
+   
+    const updateItemText = useCallback((index: number, newText: string) => {
+      isTypingRef.current = true;
+      const newItems = [...items];
+      newItems[index] = { ...newItems[index], text: newText };
+      setItems(newItems);
+      
+      // Programmer la sauvegarde mais ne pas sauvegarder tout de suite
+      debouncedSave(newItems);
+    }, [items, debouncedSave]);
+
+    // CORRECTION: Fonction pour mettre à jour le checkbox AVEC sauvegarde immédiate
+    const updateItemChecked = useCallback((index: number, checked: boolean) => {
+      const newItems = [...items];
+      newItems[index] = { ...newItems[index], checked };
+      setItems(newItems);
+      
+      // Sauvegarder immédiatement pour les checkboxes (pas de frappe)
+      onChange({ 
+        ...block, 
+        content: { 
+          checklistItems: newItems,
+          showProgress: showProgress
+        } 
+      });
+    }, [items, block, onChange, showProgress]);
+
+    // CORRECTION: Fonction addItem qui sauvegarde immédiatement
+    const addItem = useCallback(() => {
+      const newItems: ChecklistItem[] = [...items, { text: '', checked: false }];
+      
+      setItems(newItems);
+      onChange({ 
+        ...block, 
+        content: { 
+          checklistItems: newItems,
+          showProgress: showProgress
+        } 
+      });
+    }, [items, showProgress, block, onChange]);
+
+    // CORRECTION: Fonction removeItem qui sauvegarde immédiatement
+    const removeItem = useCallback((index: number) => {
+      if (items.length > 1) {
+        const newItems: ChecklistItem[] = items.filter((_, i) => i !== index);
+        
+        setItems(newItems);
+        onChange({ 
+          ...block, 
+          content: { 
+            checklistItems: newItems,
+            showProgress: showProgress
+          } 
+        });
+      }
+    }, [items, showProgress, block, onChange]);
+
+    // Basculer l'affichage de la progression
+    const toggleProgressDisplay = useCallback(() => {
+      const newShowProgress = !showProgress;
+      setShowProgress(newShowProgress);
+      onChange({ 
+        ...block, 
+        content: { 
+          checklistItems: items,
+          showProgress: newShowProgress
+        } 
+      });
+    }, [items, showProgress, block, onChange]);
+
+    // NOUVEAU: Forcer la sauvegarde quand on perd le focus
+    const handleInputBlur = useCallback((index: number) => {
+      if (isTypingRef.current && saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        isTypingRef.current = false;
+        onChange({ 
+          ...block, 
+          content: { 
+            checklistItems: items,
+            showProgress: showProgress
+          } 
+        });
+      }
+    }, [items, showProgress, block, onChange]);
+
+    // Calculer les statistiques en excluant les éléments vides
+    const nonEmptyItems = items.filter(item => item.text.trim() !== '');
+    const totalItems = nonEmptyItems.length;
+    const completedItems = nonEmptyItems.filter(item => item.checked).length;
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+    // NOUVEAU: Nettoyer le timer à la destruction du composant
+    useEffect(() => {
+      return () => {
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+      };
+    }, []);
+
+    return (
+      <div className="group relative">
+        {/* Boutons de manipulation du bloc */}
+        <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 cursor-grab active:cursor-grabbing hover:bg-accent"
+              title="Déplacer"
+            >
+              <GripVertical className="h-3 w-3" />
+            </Button>
+            {canMoveUp && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMoveUp}
+                className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+                title="Monter"
+              >
+                <ChevronUp className="h-3 w-3" />
+              </Button>
+            )}
+            {canMoveDown && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMoveDown}
+                className="h-6 w-6 p-0 hover:bg-accent cursor-pointer"
+                title="Descendre"
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+              title="Supprimer"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="group space-y-4">
+          {/* Header avec statistiques */}
+          <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Liste de tâches</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {totalItems > 0 ? `${completedItems}/${totalItems} terminé${completedItems > 1 ? 's' : ''}` : 'Aucune tâche'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleProgressDisplay}
+                className="h-8 px-2 text-xs cursor-pointer"
+                title={showProgress ? "Masquer la progression" : "Afficher la progression"}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                {showProgress ? "Masquer" : "Afficher"}
+              </Button>
+              {showProgress && (
+                <>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {progress}%
+                  </div>
+                  <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Liste des éléments */}
+          <div className="space-y-2 border border-border rounded-lg p-4 bg-background">
+            {items.map((item: ChecklistItem, index: number) => (
+              <div key={`item-${index}`} className="flex items-center gap-3 group/item p-2 rounded-md hover:bg-muted/30 transition-colors">
+                {/* Checkbox moderne */}
+                <div className="relative flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={(e) => updateItemChecked(index, e.target.checked)}
+                    className="peer sr-only"
+                  />
+                  <div className={`
+                    w-5 h-5 rounded border-2 transition-all duration-200 cursor-pointer flex items-center justify-center
+                    ${item.checked 
+                      ? 'bg-primary border-primary text-primary-foreground shadow-sm' 
+                      : 'border-border bg-background hover:border-primary/50 hover:bg-primary/5'
+                    }
+                  `}
+                  onClick={() => updateItemChecked(index, !item.checked)}
+                  >
+                    {item.checked && (
+                      <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+
+                {/* CORRECTION FINALE: Input qui ne sauvegarde QUE quand on arrête de taper */}
+                <Input
+                  value={item.text}
+                  onChange={(e) => {
+                    // SEULEMENT mettre à jour l'état local pendant la frappe
+                    updateItemText(index, e.target.value);
+                  }}
+                  onBlur={() => {
+                    // Sauvegarder quand on quitte le champ
+                    handleInputBlur(index);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      // Forcer la sauvegarde avant d'ajouter un nouvel élément
+                      if (saveTimeoutRef.current) {
+                        clearTimeout(saveTimeoutRef.current);
+                      }
+                      onChange({ 
+                        ...block, 
+                        content: { 
+                          checklistItems: items,
+                          showProgress: showProgress
+                        } 
+                      });
+                      
+                      // Ajouter un nouvel élément si c'est le dernier et qu'il n'est pas vide
+                      if (index === items.length - 1 && item.text.trim()) {
+                        addItem();
+                        // Focus sur le nouvel élément après un court délai
+                        setTimeout(() => {
+                          const inputs = document.querySelectorAll('input[placeholder^="Élément"]');
+                          const nextInput = inputs[index + 1] as HTMLInputElement;
+                          if (nextInput) {
+                            nextInput.focus();
+                          }
+                        }, 100);
+                      }
+                    }
+                  }}
+                  placeholder={`Élément ${index + 1}...`}
+                  className={`flex-1 border-none shadow-none focus-visible:ring-0 transition-all duration-200 ${
+                    item.checked ? 'line-through text-muted-foreground opacity-75' : ''
+                  }`}
+                />
+
+                {/* Bouton supprimer */}
+                {items.length > 1 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeItem(index)}
+                    className="opacity-0 group-hover/item:opacity-100 h-8 w-8 p-0 text-destructive hover:bg-destructive/10 cursor-pointer transition-opacity"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+
+                {/* Indicateur de statut */}
+                {item.text.trim() !== '' && (
+                  <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                    <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      item.checked 
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                        : 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                    }`}>
+                      {item.checked ? 'Terminé' : 'À faire'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Bouton ajouter */}
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={addItem} 
+            className="w-full cursor-pointer border-dashed hover:border-solid hover:bg-primary/5"
+          >
+            <Plus className="h-3 w-3 mr-2" />
+            Ajouter un élément
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const renderBlock = (block: Block, index: number) => {
     const commonProps = {
       block,
@@ -2134,6 +3226,8 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
         return <CodeBlock {...commonProps} />;
       case 'image':
         return <ImageBlock {...commonProps} />;
+      case 'file':
+        return <FileBlock {...commonProps} />;
       case 'divider':
         return <DividerBlock {...commonProps} />;
       case 'spacer':
@@ -2151,9 +3245,10 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
           variant="outline" 
           size="sm" 
           className="w-full opacity-0 group-hover:opacity-100 transition-opacity border-dashed hover:border-solid hover:bg-accent cursor-pointer"
+          disabled={isAddingBlock}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Ajouter un bloc
+          {isAddingBlock ? "Ajout en cours..." : "Ajouter un bloc"}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2">
@@ -2163,11 +3258,13 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('text', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
+         
           >
             <Type className="h-4 w-4" />
             <div className="text-left">
               <div className="font-medium">Texte</div>
-              <div className="text-xs text-muted-foreground">Paragraphe de texte</div>
+              <div className="text-xs text-muted-foreground">Paragraphe avec formatage</div>
             </div>
           </Button>
           <Button
@@ -2175,11 +3272,12 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('heading', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <Type className="h-4 w-4" />
             <div className="text-left">
               <div className="font-medium">Titre</div>
-              <div className="text-xs text-muted-foreground">H1, H2, H3...</div>
+              <div className="text-xs text-muted-foreground">Titre de section</div>
             </div>
           </Button>
           <Button
@@ -2187,11 +3285,12 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('table', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <Table className="h-4 w-4" />
             <div className="text-left">
               <div className="font-medium">Tableau</div>
-              <div className="text-xs text-muted-foreground">Données tabulaires</div>
+              <div className="text-xs text-muted-foreground">Tableau de données</div>
             </div>
           </Button>
           <Button
@@ -2199,11 +3298,12 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('checklist', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <CheckSquare className="h-4 w-4" />
             <div className="text-left">
-              <div className="font-medium">Liste</div>
-              <div className="text-xs text-muted-foreground">À cocher</div>
+              <div className="font-medium">Liste de tâches</div>
+              <div className="text-xs text-muted-foreground">Cases à cocher</div>
             </div>
           </Button>
           <Button
@@ -2211,6 +3311,7 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('quote', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <Quote className="h-4 w-4" />
             <div className="text-left">
@@ -2223,6 +3324,7 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('code', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <Code className="h-4 w-4" />
             <div className="text-left">
@@ -2235,11 +3337,12 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('image', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
-            <Image className="h-4 w-4" alt={''}/>
+            <ImageIcon className="h-4 w-4" />
             <div className="text-left">
               <div className="font-medium">Image</div>
-              <div className="text-xs text-muted-foreground">Ajouter une image</div>
+              <div className="text-xs text-muted-foreground">Image avec légende</div>
             </div>
           </Button>
           <Button
@@ -2247,6 +3350,7 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('divider', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <Minus className="h-4 w-4" />
             <div className="text-left">
@@ -2259,11 +3363,27 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             size="sm"
             onClick={() => addBlock('spacer', afterIndex)}
             className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
           >
             <MoveVertical className="h-4 w-4" />
             <div className="text-left">
               <div className="font-medium">Espacement</div>
-              <div className="text-xs text-muted-foreground">Espace vertical invisible</div>
+              <div className="text-xs text-muted-foreground">Espace vertical</div>
+            </div>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => addBlock('file', afterIndex)}
+            className="flex items-center gap-3 justify-start h-auto p-3 hover:bg-accent cursor-pointer"
+            disabled={isAddingBlock}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <div className="text-left">
+              <div className="font-medium">Fichier</div>
+              <div className="text-xs text-muted-foreground">Vidéo, audio, document...</div>
             </div>
           </Button>
         </div>
@@ -2272,9 +3392,10 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
   );
 
   return (
-    <div className="space-y-4 pl-6 relative"> {/* Réduit l'espace à gauche de 12 à 6 */}
+    <div className="space-y-4 pl-6 relative">
       <div className="flex flex-col space-y-4 w-full">
         {blocks.length === 0 && (
+
           <div className="group block w-full">
             <AddBlockMenu />
           </div>
@@ -2291,4 +3412,4 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
       </div>
     </div>
   );
-}
+};
