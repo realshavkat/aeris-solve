@@ -197,7 +197,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => signIn("discord")}
+              onClick={() => signIn("discord", { callbackUrl: "/" })}
               className="w-full cursor-pointer"
             >
               Se connecter avec Discord
