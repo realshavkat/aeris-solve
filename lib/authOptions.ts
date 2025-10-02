@@ -3,6 +3,22 @@ import DiscordProvider from "next-auth/providers/discord";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+      status?: string;
+      rpName?: string | null;
+      anonymousNickname?: string | null;
+      role?: string;
+      discordId?: string;
+    };
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     DiscordProvider({
@@ -12,11 +28,18 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ profile }) {
-      if (!profile?.id) return false;
+      const discordProfile = profile as {
+        id: string;
+        username: string;
+        discriminator?: string;
+        avatar?: string;
+      };
+
+      if (!discordProfile?.id) return false;
 
       try {
         const { db } = await connectToDatabase();
-        const existingUser = await db.collection("users").findOne({ discordId: profile.id });
+        const existingUser = await db.collection("users").findOne({ discordId: discordProfile.id });
 
         // Vérifier si l'utilisateur est banni
         if (existingUser?.status === 'banned') {
@@ -26,11 +49,11 @@ export const authOptions: NextAuthOptions = {
         // Si l'utilisateur n'existe pas, le créer
         if (!existingUser) {
           await db.collection("users").insertOne({
-            discordId: profile.id,
-            discordUsername: profile.username,
-            discordDiscriminator: profile.discriminator || '0',
-            avatar: profile.avatar,
-            nickname: profile.username,
+            discordId: discordProfile.id,
+            discordUsername: discordProfile.username,
+            discordDiscriminator: discordProfile.discriminator || '0',
+            avatar: discordProfile.avatar,
+            nickname: discordProfile.username,
             status: 'needs_registration',
             role: 'visitor',
             createdAt: new Date(),
@@ -49,7 +72,8 @@ export const authOptions: NextAuthOptions = {
       if (account && profile) {
         try {
           const { db } = await connectToDatabase();
-          const user = await db.collection("users").findOne({ discordId: profile.id });
+          const discordProfile = profile as { id: string };
+          const user = await db.collection("users").findOne({ discordId: discordProfile.id });
           if (user) {
             token.id = user._id.toString();
             token.role = user.role || 'visitor';
