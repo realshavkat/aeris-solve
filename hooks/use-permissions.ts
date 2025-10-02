@@ -49,7 +49,7 @@ export function usePermissions() {
   const [isLoading, setIsLoading] = useState(true);
   
   // Références pour éviter les effets de bord
-  const fetchTimeoutRef = useRef<NodeJS.Timeout>();
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const lastUserIdRef = useRef<string | null>(null);
 
@@ -172,7 +172,7 @@ export function usePermissions() {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [session?.user?.id, status, fetchPermissions]);
+  }, [session?.user?.id, status, fetchPermissions, isLoading]);
 
   // Cleanup au démontage
   useEffect(() => {
